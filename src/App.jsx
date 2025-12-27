@@ -218,7 +218,7 @@ export default function App() {
         <div className="brand">
           <div className="brand__logo">EA</div>
           <div className="brand__text">
-            <div className="brand__name">Export AI Agent</div>
+            <div className="brand__name">Export AI Agent (LIVE)</div>
             <div className="brand__tag">Export readiness & compliance guidance</div>
           </div>
         </div>
