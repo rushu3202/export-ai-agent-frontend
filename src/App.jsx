@@ -1,6 +1,7 @@
+import { useEffect, useMemo, useState } from "react";
 import jsPDF from "jspdf";
-import { useMemo, useState } from "react";
 import "./App.css";
+import { supabase } from "./supabaseClient";
 
 function Badge({ tone = "neutral", children }) {
   return <span className={`badge badge--${tone}`}>{children}</span>;
@@ -35,7 +36,140 @@ function List({ items, empty = "None" }) {
   );
 }
 
+function AuthScreen({ onAuthed }) {
+  const [mode, setMode] = useState("signin"); // signin | signup
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  const signInWithGoogle = async () => {
+    setMsg("");
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: window.location.origin },
+    });
+    if (error) setMsg(error.message);
+    setLoading(false);
+  };
+
+  const submitEmail = async () => {
+    setMsg("");
+    setLoading(true);
+
+    if (!email || !password) {
+      setMsg("Please enter email and password.");
+      setLoading(false);
+      return;
+    }
+
+    if (mode === "signup") {
+      const { error } = await supabase.auth.signUp({ email, password });
+      if (error) setMsg(error.message);
+      else setMsg("Account created. You can sign in now.");
+      setLoading(false);
+      return;
+    }
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) setMsg(error.message);
+    else onAuthed?.(data.session);
+
+    setLoading(false);
+  };
+
+  return (
+    <div className="page">
+      <header className="topbar">
+        <div className="brand">
+          <div className="brand__logo">EA</div>
+          <div className="brand__text">
+            <div className="brand__name">Export AI Agent</div>
+            <div className="brand__tag">Secure exporter readiness platform</div>
+          </div>
+        </div>
+        <div className="topbar__actions">
+          <Badge tone="neutral">UK-first</Badge>
+          <Badge tone="neutral">Auth</Badge>
+        </div>
+      </header>
+
+      <div className="layout">
+        <main className="main" style={{ maxWidth: 560, margin: "0 auto" }}>
+          <Card
+            title={mode === "signup" ? "Create your account" : "Sign in"}
+            subtitle="Use email/password or Google. Your export journeys will be saved securely."
+            right={<Badge tone="neutral">v1</Badge>}
+          >
+            <div className="grid" style={{ gridTemplateColumns: "1fr" }}>
+              <div className="field">
+                <label className="label">Email</label>
+                <input
+                  className="input"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@email.com"
+                />
+              </div>
+
+              <div className="field">
+                <label className="label">Password</label>
+                <input
+                  className="input"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                />
+              </div>
+
+              <div className="actions" style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                <button className="btn" onClick={submitEmail} disabled={loading}>
+                  {loading ? "Please wait…" : mode === "signup" ? "Sign up" : "Sign in"}
+                </button>
+
+                <button className="btn secondary" onClick={signInWithGoogle} disabled={loading}>
+                  Continue with Google
+                </button>
+
+                <button
+                  className="btn secondary"
+                  onClick={() => {
+                    setMsg("");
+                    setMode(mode === "signup" ? "signin" : "signup");
+                  }}
+                  disabled={loading}
+                >
+                  {mode === "signup" ? "Have an account? Sign in" : "New here? Create account"}
+                </button>
+              </div>
+
+              {msg ? <div className="alert alert--error">{msg}</div> : null}
+
+              <div className="muted" style={{ marginTop: 10 }}>
+                Tip: For now, email verification is off to keep testing fast. We’ll enable it before launch.
+              </div>
+            </div>
+          </Card>
+        </main>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
+  const API_BASE = import.meta.env.VITE_API_URL;
+
+  const [session, setSession] = useState(null);
+  const [userEmail, setUserEmail] = useState("");
+
+  // Your existing app state
   const [product, setProduct] = useState("T-shirts");
   const [country, setCountry] = useState("UK");
   const [experience, setExperience] = useState("beginner");
@@ -46,9 +180,25 @@ export default function App() {
   const [lockedHs, setLockedHs] = useState(null);
   const [selectedHs, setSelectedHs] = useState(null);
 
-  const [savedReportId, setSavedReportId] = useState(null);
-  const [saving, setSaving] = useState(false);
-  const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session || null);
+      setUserEmail(data.session?.user?.email || "");
+    });
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      setSession(newSession || null);
+      setUserEmail(newSession?.user?.email || "");
+    });
+
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  const signOut = async () => {
+    await supabase.auth.signOut();
+    setResult(null);
+    setError("");
+  };
 
   const canSubmit = product.trim().length > 0 && country.trim().length > 0;
 
@@ -68,6 +218,12 @@ export default function App() {
     return 1;
   }, [result]);
 
+  // helper: get access token to send to backend
+  const getToken = async () => {
+    const { data } = await supabase.auth.getSession();
+    return data.session?.access_token || "";
+  };
+
   const checkExport = async () => {
     if (!canSubmit) return;
 
@@ -76,12 +232,16 @@ export default function App() {
     setResult(null);
     setLockedHs(null);
     setSelectedHs(null);
-    setSavedReportId(null);
 
     try {
-      const res = await fetch(`${API_BASE}/api/export-check`,  {
+      const token = await getToken();
+
+      const res = await fetch(`${API_BASE}/api/export-check`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({ product, country, experience }),
       });
 
@@ -90,7 +250,6 @@ export default function App() {
 
       setResult(data);
 
-      // Auto-select first HS suggestion (better UX)
       if (data?.hs_code_suggestions?.length) {
         setSelectedHs(data.hs_code_suggestions[0]);
       }
@@ -119,49 +278,40 @@ export default function App() {
     y += 10;
 
     doc.setFontSize(12);
-    doc.text(`Product: ${product}`, 14, y);
-    y += 6;
-    doc.text(`Destination: ${country}`, 14, y);
-    y += 6;
-    doc.text(`Experience: ${experience}`, 14, y);
-    y += 6;
-    doc.text(`Risk Level: ${result.risk_level}`, 14, y);
-    y += 6;
-    doc.text(`Incoterm: ${result.recommended_incoterm}`, 14, y);
-    y += 8;
+    doc.text(`Product: ${product}`, 14, y); y += 6;
+    doc.text(`Destination: ${country}`, 14, y); y += 6;
+    doc.text(`Experience: ${experience}`, 14, y); y += 6;
+    doc.text(`Risk Level: ${result.risk_level}`, 14, y); y += 6;
+    doc.text(`Incoterm: ${result.recommended_incoterm}`, 14, y); y += 8;
 
     doc.setFontSize(13);
-    doc.text("HS Code", 14, y);
-    y += 6;
+    doc.text("HS Code", 14, y); y += 6;
     doc.setFontSize(11);
     doc.text(`${lockedHs.code} - ${lockedHs.description}`, 14, y);
     y += 8;
 
     doc.setFontSize(13);
-    doc.text("Required Documents", 14, y);
-    y += 6;
+    doc.text("Required Documents", 14, y); y += 6;
     doc.setFontSize(11);
-    (result.documents || []).forEach((d) => {
+    result.documents.forEach(d => {
       doc.text(`• ${d}`, 16, y);
       y += 5;
     });
 
     y += 4;
     doc.setFontSize(13);
-    doc.text("Warnings", 14, y);
-    y += 6;
+    doc.text("Warnings", 14, y); y += 6;
     doc.setFontSize(11);
-    ((result.warnings && result.warnings.length) ? result.warnings : ["None"]).forEach((w) => {
+    (result.warnings?.length ? result.warnings : ["None"]).forEach(w => {
       doc.text(`• ${w}`, 16, y);
       y += 5;
     });
 
     y += 4;
     doc.setFontSize(13);
-    doc.text("Next Steps", 14, y);
-    y += 6;
+    doc.text("Next Steps", 14, y); y += 6;
     doc.setFontSize(11);
-    (result.nextSteps || []).forEach((n) => {
+    result.nextSteps.forEach(n => {
       doc.text(`• ${n}`, 16, y);
       y += 5;
     });
@@ -178,69 +328,46 @@ export default function App() {
     doc.save("export-readiness-report.pdf");
   };
 
-  const saveReport = async () => {
-    if (!result || !lockedHs) {
-      alert("Please run a check and lock an HS code first.");
-      return;
-    }
-
-    try {
-      setSaving(true);
-
-      const res = await fetch(`${API_BASE}/api/reports`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          product,
-          country,
-          experience,
-          result,
-          lockedHs,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || "Failed to save report");
-
-      setSavedReportId(data.reportId);
-      alert(`Report saved ✅ ID: ${data.reportId}`);
-    } catch (e) {
-      alert(e?.message || "Could not save report");
-    } finally {
-      setSaving(false);
-    }
-  };
+  // If not logged in → show auth screen
+  if (!session) {
+    return <AuthScreen onAuthed={(s) => setSession(s)} />;
+  }
 
   return (
     <div className="page">
-      {/* Top Bar */}
       <header className="topbar">
         <div className="brand">
           <div className="brand__logo">EA</div>
           <div className="brand__text">
-            <div className="brand__name">Export AI Agent (LIVE2)</div>
+            <div className="brand__name">Export AI Agent</div>
             <div className="brand__tag">Export readiness & compliance guidance</div>
           </div>
         </div>
 
-        <div className="topbar__actions">
-          <Badge tone="neutral">UK-first</Badge>
-          <Badge tone="success">Backend Connected</Badge>
+        <div className="topbar__actions" style={{ gap: 10 }}>
+          <Badge tone="neutral">{userEmail || "Signed in"}</Badge>
+          <Badge tone="success">Auth OK</Badge>
+          <button className="btn secondary" onClick={signOut}>Logout</button>
         </div>
       </header>
 
       <div className="layout">
-        {/* Sidebar */}
         <aside className="sidebar">
           <div className="sidebar__title">Export Journey</div>
 
           <div className="steps">
             {journeySteps.map((s, idx) => {
               const state =
-                idx < currentStepIndex ? "done" : idx === currentStepIndex ? "active" : "todo";
+                idx < currentStepIndex
+                  ? "done"
+                  : idx === currentStepIndex
+                  ? "active"
+                  : "todo";
               return (
                 <div key={s.key} className={`step step--${state}`}>
-                  <div className="step__icon">{state === "done" ? "✓" : idx + 1}</div>
+                  <div className="step__icon">
+                    {state === "done" ? "✓" : idx + 1}
+                  </div>
                   <div className="step__label">{s.label}</div>
                 </div>
               );
@@ -250,13 +377,11 @@ export default function App() {
           <div className="sidebar__help">
             <div className="sidebar__helpTitle">Tip</div>
             <div className="sidebar__helpText">
-              Start simple: product + destination + experience. We’ll generate a clear checklist and
-              next actions.
+              Start simple: product + destination + experience. We’ll generate a clear checklist and next actions.
             </div>
           </div>
         </aside>
 
-        {/* Main */}
         <main className="main">
           <Card
             title="Start an export readiness check"
@@ -307,7 +432,7 @@ export default function App() {
             </div>
 
             {result ? (
-              <div style={{ display: "flex", gap: "10px", marginTop: "14px", flexWrap: "wrap" }}>
+              <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
                 <Badge
                   tone={
                     result.risk_level === "HIGH"
@@ -319,7 +444,6 @@ export default function App() {
                 >
                   Risk: {result.risk_level}
                 </Badge>
-
                 <Badge tone="neutral">Incoterm: {result.recommended_incoterm}</Badge>
                 <Badge tone="neutral">Stage: {result.journey_stage}</Badge>
               </div>
@@ -348,15 +472,12 @@ export default function App() {
                   return (
                     <div
                       key={i}
-                      className={`hsRow ${isSelected ? "hsRow--selected" : ""} ${
-                        isLocked ? "hsRow--locked" : ""
-                      }`}
+                      className={`hsRow ${isSelected ? "hsRow--selected" : ""} ${isLocked ? "hsRow--locked" : ""}`}
                       onClick={() => setSelectedHs(s)}
                       style={{ cursor: "pointer" }}
                       title="Click to select"
                     >
                       <div className="hsCode">{s.code}</div>
-
                       <div className="hsText">
                         <div className="hsDesc">{s.description}</div>
                         <div className="muted">Confidence: {s.confidence}</div>
@@ -366,29 +487,15 @@ export default function App() {
                   );
                 })}
 
-                <div className="muted" style={{ marginTop: "10px" }}>
-                  {result.hs_note}
-                </div>
+                <div className="muted" style={{ marginTop: 10 }}>{result.hs_note}</div>
 
-                <div style={{ display: "flex", gap: "10px", marginTop: "12px", flexWrap: "wrap" }}>
-                  <button
-                    className="btn secondary"
-                    disabled={!selectedHs || !!lockedHs}
-                    onClick={() => setLockedHs(selectedHs)}
-                  >
+                <div style={{ display: "flex", gap: 10, marginTop: 12, flexWrap: "wrap" }}>
+                  <button className="btn secondary" disabled={!selectedHs || !!lockedHs} onClick={() => setLockedHs(selectedHs)}>
                     Confirm HS Code
                   </button>
 
                   <button className="btn" disabled={!lockedHs} onClick={downloadPDF}>
                     Download Export Report (PDF)
-                  </button>
-
-                  <button
-                    className="btn secondary"
-                    disabled={!lockedHs || saving}
-                    onClick={saveReport}
-                  >
-                    {saving ? "Saving..." : "Save Report"}
                   </button>
 
                   <button className="btn secondary" disabled={!lockedHs} onClick={() => setLockedHs(null)}>
@@ -403,45 +510,12 @@ export default function App() {
                       : "Tip: click a suggestion to select it"}
                   </div>
                 </div>
-
-                {savedReportId ? (
-                  <div className="muted" style={{ marginTop: "8px" }}>
-                    Saved Report ID: <b>{savedReportId}</b>
-                  </div>
-                ) : null}
-
-                {result?.hs_clarification_questions?.length ? (
-                  <div style={{ marginTop: "14px" }}>
-                    <h4 style={{ marginBottom: "8px" }}>Help us refine the HS code</h4>
-
-                    {result.hs_clarification_questions.map((q, qi) => (
-                      <div key={qi} style={{ marginBottom: "12px" }}>
-                        <div className="muted" style={{ marginBottom: "4px" }}>
-                          {q.question}
-                        </div>
-
-                        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                          {q.options.map((opt) => (
-                            <button
-                              key={opt}
-                              className="btn secondary"
-                              onClick={() => alert("HS refinement logic will be added next")}
-                            >
-                              {opt}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
               </div>
             ) : (
               <div className="muted">{result?.hs_note || "Run a check to get HS code guidance."}</div>
             )}
           </Card>
 
-          {/* Results */}
           <div className="results">
             <Card
               title="Required Documents"
@@ -475,7 +549,7 @@ export default function App() {
           </div>
 
           <div className="footerNote">
-            This is your v1. Next we’ll add country rules, HS code intelligence, and PDF export packs.
+            This is your v1. Next we’ll add saved journeys, subscriptions, and deeper country logic.
           </div>
         </main>
       </div>
