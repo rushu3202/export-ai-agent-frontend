@@ -59,11 +59,11 @@ export default function Dashboard({ user }) {
   const [selectedHs, setSelectedHs] = useState(null);
   const [lockedHs, setLockedHs] = useState(null);
 
-  // Saving
+  // Saving current report
   const [savedReportId, setSavedReportId] = useState(null);
   const [saving, setSaving] = useState(false);
 
-  // Reports (dashboard)
+  // Reports (saved)
   const [reports, setReports] = useState([]);
   const [reportsLoading, setReportsLoading] = useState(false);
   const [reportsError, setReportsError] = useState("");
@@ -88,8 +88,14 @@ export default function Dashboard({ user }) {
     return 1;
   }, [result]);
 
-  const API_URL = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
+  const isProd = import.meta.env.PROD;
 
+const API_URL = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
+
+if (isProd && !API_URL) {
+  throw new Error("VITE_API_URL is missing in production. Set it in Vercel → Settings → Environment Variables.");
+}
+  
   async function getTokenOrThrow() {
     const { data: sessionData } = await supabase.auth.getSession();
     const token = sessionData?.session?.access_token;
@@ -133,7 +139,6 @@ export default function Dashboard({ user }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Failed to load report");
 
-      // backend returns { ok:true, report: {...} }
       setSelectedReport(data.report || null);
     } catch (e) {
       setReportsError(e?.message || "Could not load report");
@@ -142,6 +147,8 @@ export default function Dashboard({ user }) {
     }
   };
 
+  // ⚠️ This will work ONLY if your backend has DELETE /api/reports/:id
+  // If you haven't added it, either add the backend route or remove this button.
   const deleteReport = async (id) => {
     const ok = confirm("Delete this report? This cannot be undone.");
     if (!ok) return;
@@ -157,7 +164,6 @@ export default function Dashboard({ user }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Failed to delete report");
 
-      // remove locally
       setReports((prev) => prev.filter((r) => r.id !== id));
       if (selectedReport?.id === id) setSelectedReport(null);
       alert("Deleted ✅");
@@ -167,7 +173,6 @@ export default function Dashboard({ user }) {
   };
 
   useEffect(() => {
-    // load reports when dashboard opens
     fetchReports();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -288,7 +293,6 @@ export default function Dashboard({ user }) {
       return;
     }
 
-    // current (unsaved) report PDF
     const doc = new jsPDF();
     let y = 15;
 
@@ -377,7 +381,6 @@ export default function Dashboard({ user }) {
       setSavedReportId(data.reportId);
       alert(`Saved ✅ Report ID: ${data.reportId}`);
 
-      // refresh reports + auto-open the saved report
       await fetchReports();
       await openReport(data.reportId);
     } catch (e) {
@@ -464,8 +467,7 @@ export default function Dashboard({ user }) {
                 style={{
                   cursor: "pointer",
                   marginTop: 8,
-                  border:
-                    selectedReport?.id === r.id ? "1px solid rgba(255,255,255,0.35)" : undefined,
+                  border: selectedReport?.id === r.id ? "1px solid rgba(255,255,255,0.35)" : undefined,
                 }}
                 onClick={() => openReport(r.id)}
                 title="Open report"
@@ -474,14 +476,21 @@ export default function Dashboard({ user }) {
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
                     <div>
                       <b>{r.product}</b> → {r.country}{" "}
-                      <span className="muted">
-                        (HS: {r.hs_code || "-"})
-                      </span>
+                      <span className="muted">(HS: {r.hs_code || "-"})</span>
                     </div>
-                    <Badge tone={r.risk_level === "HIGH" ? "warning" : r.risk_level === "MEDIUM" ? "neutral" : "success"}>
+                    <Badge
+                      tone={
+                        r.risk_level === "HIGH"
+                          ? "warning"
+                          : r.risk_level === "MEDIUM"
+                          ? "neutral"
+                          : "success"
+                      }
+                    >
                       {r.risk_level || "-"}
                     </Badge>
                   </div>
+
                   <div className="muted">{formatDate(r.created_at)}</div>
 
                   <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
@@ -499,7 +508,6 @@ export default function Dashboard({ user }) {
                       className="btn"
                       onClick={(e) => {
                         e.stopPropagation();
-                        // lightweight PDF based on list row data (best is from selectedReport)
                         downloadPDFfromReport(selectedReport?.id === r.id ? selectedReport : r);
                       }}
                     >
@@ -523,7 +531,6 @@ export default function Dashboard({ user }) {
         </aside>
 
         <main className="main">
-          {/* Selected Report Viewer */}
           <Card
             title="Report Details"
             subtitle="Saved report view (clean + downloadable)"
@@ -538,7 +545,15 @@ export default function Dashboard({ user }) {
                   <Badge tone="neutral">Dest: {selectedReport.country}</Badge>
                   <Badge tone="neutral">HS: {selectedReport.hs_code}</Badge>
                   <Badge tone="neutral">Incoterm: {selectedReport.incoterm}</Badge>
-                  <Badge tone={selectedReport.risk_level === "HIGH" ? "warning" : selectedReport.risk_level === "MEDIUM" ? "neutral" : "success"}>
+                  <Badge
+                    tone={
+                      selectedReport.risk_level === "HIGH"
+                        ? "warning"
+                        : selectedReport.risk_level === "MEDIUM"
+                        ? "neutral"
+                        : "success"
+                    }
+                  >
                     Risk: {selectedReport.risk_level}
                   </Badge>
                 </div>
@@ -558,15 +573,15 @@ export default function Dashboard({ user }) {
 
                 <div style={{ marginTop: 14 }}>
                   <Card title="Required Documents">
-                    <List items={(selectedReport.result?.documents || [])} empty="None" />
+                    <List items={selectedReport.result?.documents || []} empty="None" />
                   </Card>
 
                   <Card title="Warnings">
-                    <List items={(selectedReport.result?.warnings || [])} empty="None" />
+                    <List items={selectedReport.result?.warnings || []} empty="None" />
                   </Card>
 
                   <Card title="Next Steps">
-                    <List items={(selectedReport.result?.nextSteps || [])} empty="None" />
+                    <List items={selectedReport.result?.nextSteps || []} empty="None" />
                   </Card>
                 </div>
 
@@ -582,7 +597,6 @@ export default function Dashboard({ user }) {
             )}
           </Card>
 
-          {/* Main Export Check */}
           <Card
             title="Start an export readiness check"
             subtitle="Enter the basics — the engine will return required documents, warnings, and next steps."
