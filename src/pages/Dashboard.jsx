@@ -44,7 +44,11 @@ function formatDate(iso) {
   }
 }
 
-const safeList = (arr, fallback) => (arr && arr.length ? arr : fallback);
+function riskTone(risk) {
+  if (risk === "HIGH") return "warning";
+  if (risk === "MEDIUM") return "neutral";
+  return "success";
+}
 
 export default function Dashboard({ user }) {
   // Inputs
@@ -52,29 +56,29 @@ export default function Dashboard({ user }) {
   const [country, setCountry] = useState("UK");
   const [experience, setExperience] = useState("beginner");
 
-  // API results
+  // Live check result
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // HS code selection
+  // HS selection
   const [selectedHs, setSelectedHs] = useState(null);
   const [lockedHs, setLockedHs] = useState(null);
 
-  // Save
+  // Saving current report
   const [savedReportId, setSavedReportId] = useState(null);
   const [saving, setSaving] = useState(false);
 
-  // Saved reports panel
+  // Saved reports
   const [reports, setReports] = useState([]);
   const [reportsLoading, setReportsLoading] = useState(false);
   const [reportsError, setReportsError] = useState("");
   const [selectedReport, setSelectedReport] = useState(null);
   const [selectedReportLoading, setSelectedReportLoading] = useState(false);
 
-  const API_URL = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
-
   const canSubmit = product.trim().length > 0 && country.trim().length > 0;
+
+  const API_URL = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
 
   const journeySteps = useMemo(
     () => [
@@ -99,7 +103,12 @@ export default function Dashboard({ user }) {
     return token;
   }
 
-  const fetchReports = async () => {
+  const fetchReports = async (autoOpenFirst = true) => {
+    if (!API_URL) {
+      setReportsError("Missing API URL. Set VITE_API_URL in Vercel env vars.");
+      return;
+    }
+
     try {
       setReportsLoading(true);
       setReportsError("");
@@ -110,14 +119,13 @@ export default function Dashboard({ user }) {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      const data = await res.json().catch(() => ({}));
+      const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Failed to load reports");
 
       const list = data.reports || [];
       setReports(list);
 
-      // auto open latest report (if none selected)
-      if (list.length && !selectedReport) {
+      if (autoOpenFirst && list.length && !selectedReport) {
         openReport(list[0].id);
       }
     } catch (e) {
@@ -128,6 +136,8 @@ export default function Dashboard({ user }) {
   };
 
   const openReport = async (id) => {
+    if (!API_URL) return;
+
     try {
       setSelectedReportLoading(true);
       setReportsError("");
@@ -138,7 +148,7 @@ export default function Dashboard({ user }) {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      const data = await res.json().catch(() => ({}));
+      const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Failed to load report");
 
       setSelectedReport(data.report || null);
@@ -153,6 +163,8 @@ export default function Dashboard({ user }) {
     const ok = confirm("Delete this report? This cannot be undone.");
     if (!ok) return;
 
+    if (!API_URL) return;
+
     try {
       const token = await getTokenOrThrow();
 
@@ -161,11 +173,12 @@ export default function Dashboard({ user }) {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      const data = await res.json().catch(() => ({}));
+      const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Failed to delete report");
 
       setReports((prev) => prev.filter((r) => r.id !== id));
       if (selectedReport?.id === id) setSelectedReport(null);
+
       alert("Deleted ✅");
     } catch (e) {
       alert(e?.message || "Could not delete");
@@ -173,15 +186,15 @@ export default function Dashboard({ user }) {
   };
 
   useEffect(() => {
-    if (!API_URL) {
-      setError("❌ Missing VITE_API_URL. Add it in Vercel environment variables.");
-      return;
-    }
-    fetchReports();
+    fetchReports(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const checkExport = async () => {
+    if (!API_URL) {
+      setError("Missing API URL. Set VITE_API_URL in Vercel env vars.");
+      return;
+    }
     if (!canSubmit) return;
 
     setLoading(true);
@@ -198,16 +211,31 @@ export default function Dashboard({ user }) {
         body: JSON.stringify({ product, country, experience }),
       });
 
-      const data = await res.json().catch(() => ({}));
+      const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Backend error");
 
-      setResult(data);
+      // Always show something (no blank sections)
+      const safe = {
+        ...data,
+        documents:
+          data.documents && data.documents.length
+            ? data.documents
+            : ["Commercial Invoice", "Packing List", "Product Specification Sheet"],
+        warnings: data.warnings || [],
+        nextSteps:
+          data.nextSteps && data.nextSteps.length
+            ? data.nextSteps
+            : ["Confirm HS code", "Check destination import rules", "Talk to a freight forwarder"],
+        hs_code_suggestions: data.hs_code_suggestions || [],
+      };
 
-      if (data?.hs_code_suggestions?.length) {
-        setSelectedHs(data.hs_code_suggestions[0]);
+      setResult(safe);
+
+      if (safe?.hs_code_suggestions?.length) {
+        setSelectedHs(safe.hs_code_suggestions[0]);
       }
     } catch (err) {
-      setError(err?.message || "Failed to fetch (backend not reachable)");
+      setError(err?.message || "Unable to connect to backend");
     } finally {
       setLoading(false);
     }
@@ -219,59 +247,73 @@ export default function Dashboard({ user }) {
     const doc = new jsPDF();
     let y = 15;
 
-    const product = r.product || "-";
-    const country = r.country || "-";
-    const experience = r.experience || "-";
+    const productV = r.product || "-";
+    const countryV = r.country || "-";
+    const experienceV = r.experience || "-";
     const risk = r.risk_level || "-";
     const incoterm = r.incoterm || "-";
     const hsCode = r.hs_code || "-";
     const hsDesc = r.hs_description || "-";
 
     const resultJson = r.result || {};
-    const documents = safeList(resultJson.documents, ["Commercial Invoice", "Packing List"]);
-    const warnings = safeList(resultJson.warnings, ["Always verify destination rules"]);
-    const nextSteps = safeList(resultJson.nextSteps, ["Confirm HS code", "Talk to logistics partner"]);
+    const documents = resultJson.documents || [];
+    const warnings = resultJson.warnings || [];
+    const nextSteps = resultJson.nextSteps || [];
 
     doc.setFontSize(16);
-    doc.text("Export Readiness Report", 14, y); y += 8;
+    doc.text("Export Readiness Report", 14, y);
+    y += 8;
 
     doc.setFontSize(10);
-    doc.text("Generated by Export AI Agent", 14, y); y += 10;
+    doc.text("Generated by Export AI Agent", 14, y);
+    y += 10;
 
     doc.setFontSize(12);
-    doc.text(`Product: ${product}`, 14, y); y += 6;
-    doc.text(`Destination: ${country}`, 14, y); y += 6;
-    doc.text(`Experience: ${experience}`, 14, y); y += 6;
+    doc.text(`Product: ${productV}`, 14, y); y += 6;
+    doc.text(`Destination: ${countryV}`, 14, y); y += 6;
+    doc.text(`Experience: ${experienceV}`, 14, y); y += 6;
     doc.text(`Risk Level: ${risk}`, 14, y); y += 6;
     doc.text(`Incoterm: ${incoterm}`, 14, y); y += 8;
 
     doc.setFontSize(13);
     doc.text("HS Code", 14, y); y += 6;
     doc.setFontSize(11);
-    doc.text(`${hsCode} - ${hsDesc}`, 14, y); y += 8;
+    doc.text(`${hsCode} - ${hsDesc}`, 14, y);
+    y += 8;
 
     doc.setFontSize(13);
     doc.text("Required Documents", 14, y); y += 6;
     doc.setFontSize(11);
-    documents.forEach((d) => { doc.text(`• ${d}`, 16, y); y += 5; });
+    (documents.length ? documents : ["None"]).forEach((d) => {
+      doc.text(`• ${d}`, 16, y);
+      y += 5;
+    });
 
     y += 4;
     doc.setFontSize(13);
     doc.text("Warnings", 14, y); y += 6;
     doc.setFontSize(11);
-    warnings.forEach((w) => { doc.text(`• ${w}`, 16, y); y += 5; });
+    (warnings.length ? warnings : ["None"]).forEach((w) => {
+      doc.text(`• ${w}`, 16, y);
+      y += 5;
+    });
 
     y += 4;
     doc.setFontSize(13);
     doc.text("Next Steps", 14, y); y += 6;
     doc.setFontSize(11);
-    nextSteps.forEach((n) => { doc.text(`• ${n}`, 16, y); y += 5; });
+    (nextSteps.length ? nextSteps : ["None"]).forEach((n) => {
+      doc.text(`• ${n}`, 16, y);
+      y += 5;
+    });
 
     y += 8;
     doc.setFontSize(9);
     doc.text(
-      "Disclaimer: Guidance only. Confirm compliance with official customs sources or licensed professionals.",
-      14, y, { maxWidth: 180 }
+      "Disclaimer: This report provides guidance only. Final compliance decisions must be confirmed with customs authorities or licensed professionals.",
+      14,
+      y,
+      { maxWidth: 180 }
     );
 
     doc.save(`export-report-${r.id || "saved"}.pdf`);
@@ -286,15 +328,13 @@ export default function Dashboard({ user }) {
     const doc = new jsPDF();
     let y = 15;
 
-    const documents = safeList(result.documents, ["Commercial Invoice", "Packing List"]);
-    const warnings = safeList(result.warnings, ["Always verify destination rules"]);
-    const nextSteps = safeList(result.nextSteps, ["Confirm HS code", "Talk to logistics partner"]);
-
     doc.setFontSize(16);
-    doc.text("Export Readiness Report", 14, y); y += 8;
+    doc.text("Export Readiness Report", 14, y);
+    y += 8;
 
     doc.setFontSize(10);
-    doc.text("Generated by Export AI Agent", 14, y); y += 10;
+    doc.text("Generated by Export AI Agent", 14, y);
+    y += 10;
 
     doc.setFontSize(12);
     doc.text(`Product: ${product}`, 14, y); y += 6;
@@ -306,36 +346,43 @@ export default function Dashboard({ user }) {
     doc.setFontSize(13);
     doc.text("HS Code", 14, y); y += 6;
     doc.setFontSize(11);
-    doc.text(`${lockedHs.code} - ${lockedHs.description}`, 14, y); y += 8;
+    doc.text(`${lockedHs.code} - ${lockedHs.description}`, 14, y);
+    y += 8;
 
     doc.setFontSize(13);
     doc.text("Required Documents", 14, y); y += 6;
     doc.setFontSize(11);
-    documents.forEach((d) => { doc.text(`• ${d}`, 16, y); y += 5; });
+    (result.documents || []).forEach((d) => {
+      doc.text(`• ${d}`, 16, y);
+      y += 5;
+    });
 
     y += 4;
     doc.setFontSize(13);
     doc.text("Warnings", 14, y); y += 6;
     doc.setFontSize(11);
-    warnings.forEach((w) => { doc.text(`• ${w}`, 16, y); y += 5; });
+    ((result.warnings && result.warnings.length ? result.warnings : ["None"]) || []).forEach((w) => {
+      doc.text(`• ${w}`, 16, y);
+      y += 5;
+    });
 
     y += 4;
     doc.setFontSize(13);
     doc.text("Next Steps", 14, y); y += 6;
     doc.setFontSize(11);
-    nextSteps.forEach((n) => { doc.text(`• ${n}`, 16, y); y += 5; });
-
-    y += 8;
-    doc.setFontSize(9);
-    doc.text(
-      "Disclaimer: Guidance only. Confirm compliance with official customs sources or licensed professionals.",
-      14, y, { maxWidth: 180 }
-    );
+    (result.nextSteps || []).forEach((n) => {
+      doc.text(`• ${n}`, 16, y);
+      y += 5;
+    });
 
     doc.save("export-readiness-report.pdf");
   };
 
   const saveReport = async () => {
+    if (!API_URL) {
+      alert("Missing API URL. Set VITE_API_URL in Vercel env vars.");
+      return;
+    }
     if (!result || !lockedHs) {
       alert("Please run a check and lock an HS code first.");
       return;
@@ -343,7 +390,6 @@ export default function Dashboard({ user }) {
 
     try {
       setSaving(true);
-
       const token = await getTokenOrThrow();
 
       const res = await fetch(`${API_URL}/api/reports`, {
@@ -355,13 +401,13 @@ export default function Dashboard({ user }) {
         body: JSON.stringify({ product, country, experience, result, lockedHs }),
       });
 
-      const data = await res.json().catch(() => ({}));
+      const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Failed to save");
 
       setSavedReportId(data.reportId);
       alert(`Saved ✅ Report ID: ${data.reportId}`);
 
-      await fetchReports();
+      await fetchReports(false);
       await openReport(data.reportId);
     } catch (e) {
       alert(e?.message || "Could not save report");
@@ -388,14 +434,18 @@ export default function Dashboard({ user }) {
 
         <div className="topbar__actions">
           <Badge tone="neutral">UK-first</Badge>
-          <Badge tone="success">Backend Connected</Badge>
+          <Badge tone={API_URL ? "success" : "warning"}>
+            {API_URL ? "Backend Connected" : "Missing API URL"}
+          </Badge>
           <Badge tone="neutral">{user?.email || "Auth OK"}</Badge>
 
-          <button className="btn secondary" onClick={fetchReports} disabled={reportsLoading}>
+          <button className="btn secondary" onClick={() => fetchReports(true)} disabled={reportsLoading}>
             {reportsLoading ? "Refreshing…" : "Refresh Reports"}
           </button>
 
-          <button className="btn secondary" onClick={logout}>Logout</button>
+          <button className="btn secondary" onClick={logout}>
+            Logout
+          </button>
         </div>
       </header>
 
@@ -405,8 +455,7 @@ export default function Dashboard({ user }) {
 
           <div className="steps">
             {journeySteps.map((s, idx) => {
-              const state =
-                idx < currentStepIndex ? "done" : idx === currentStepIndex ? "active" : "todo";
+              const state = idx < currentStepIndex ? "done" : idx === currentStepIndex ? "active" : "todo";
               return (
                 <div key={s.key} className={`step step--${state}`}>
                   <div className="step__icon">{state === "done" ? "✓" : idx + 1}</div>
@@ -445,29 +494,16 @@ export default function Dashboard({ user }) {
                 style={{
                   cursor: "pointer",
                   marginTop: 8,
-                  border:
-                    selectedReport?.id === r.id ? "1px solid rgba(255,255,255,0.35)" : undefined,
+                  border: selectedReport?.id === r.id ? "1px solid rgba(255,255,255,0.35)" : undefined,
                 }}
                 onClick={() => openReport(r.id)}
-                title="Open report"
               >
                 <div className="hsText">
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
                     <div>
-                      <b>{r.product}</b> → {r.country}{" "}
-                      <span className="muted">(HS: {r.hs_code || "-"})</span>
+                      <b>{r.product}</b> → {r.country} <span className="muted">(HS: {r.hs_code || "-"})</span>
                     </div>
-                    <Badge
-                      tone={
-                        r.risk_level === "HIGH"
-                          ? "warning"
-                          : r.risk_level === "MEDIUM"
-                          ? "neutral"
-                          : "success"
-                      }
-                    >
-                      {r.risk_level || "-"}
-                    </Badge>
+                    <Badge tone={riskTone(r.risk_level)}>{r.risk_level || "-"}</Badge>
                   </div>
 
                   <div className="muted">{formatDate(r.created_at)}</div>
@@ -475,21 +511,30 @@ export default function Dashboard({ user }) {
                   <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
                     <button
                       className="btn secondary"
-                      onClick={(e) => { e.stopPropagation(); openReport(r.id); }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openReport(r.id);
+                      }}
                     >
                       View
                     </button>
 
                     <button
                       className="btn"
-                      onClick={(e) => { e.stopPropagation(); downloadPDFfromReport(selectedReport?.id === r.id ? selectedReport : r); }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        downloadPDFfromReport(selectedReport?.id === r.id ? selectedReport : r);
+                      }}
                     >
                       PDF
                     </button>
 
                     <button
                       className="btn secondary"
-                      onClick={(e) => { e.stopPropagation(); deleteReport(r.id); }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteReport(r.id);
+                      }}
                     >
                       Delete
                     </button>
@@ -515,9 +560,7 @@ export default function Dashboard({ user }) {
                   <Badge tone="neutral">Dest: {selectedReport.country}</Badge>
                   <Badge tone="neutral">HS: {selectedReport.hs_code}</Badge>
                   <Badge tone="neutral">Incoterm: {selectedReport.incoterm}</Badge>
-                  <Badge tone={selectedReport.risk_level === "HIGH" ? "warning" : selectedReport.risk_level === "MEDIUM" ? "neutral" : "success"}>
-                    Risk: {selectedReport.risk_level}
-                  </Badge>
+                  <Badge tone={riskTone(selectedReport.risk_level)}>Risk: {selectedReport.risk_level}</Badge>
                 </div>
 
                 <div className="muted" style={{ marginTop: 10 }}>
@@ -535,22 +578,26 @@ export default function Dashboard({ user }) {
 
                 <div style={{ marginTop: 14 }}>
                   <Card title="Required Documents">
-                    <List items={safeList(selectedReport.result?.documents, ["Commercial Invoice", "Packing List"])} empty="None" />
+                    <List items={selectedReport.result?.documents || []} empty="None" />
                   </Card>
 
                   <Card title="Warnings">
-                    <List items={safeList(selectedReport.result?.warnings, ["Always verify destination rules"])} empty="None" />
+                    <List items={selectedReport.result?.warnings || []} empty="None" />
                   </Card>
 
                   <Card title="Next Steps">
-                    <List items={safeList(selectedReport.result?.nextSteps, ["Confirm HS code", "Talk to logistics partner"])} empty="None" />
+                    <List items={selectedReport.result?.nextSteps || []} empty="None" />
                   </Card>
                 </div>
 
-                <details style={{ marginTop: 14 }}>
-                  <summary className="muted" style={{ cursor: "pointer" }}>Full report JSON (debug)</summary>
-                  <pre style={{ whiteSpace: "pre-wrap" }}>{JSON.stringify(selectedReport, null, 2)}</pre>
-                </details>
+                {import.meta.env.DEV ? (
+                  <details style={{ marginTop: 14 }}>
+                    <summary className="muted" style={{ cursor: "pointer" }}>
+                      Full report JSON (debug)
+                    </summary>
+                    <pre style={{ whiteSpace: "pre-wrap" }}>{JSON.stringify(selectedReport, null, 2)}</pre>
+                  </details>
+                ) : null}
               </div>
             )}
           </Card>
@@ -584,15 +631,13 @@ export default function Dashboard({ user }) {
                 <button className="btn" onClick={checkExport} disabled={!canSubmit || loading}>
                   {loading ? "Checking…" : "Check Export Readiness"}
                 </button>
-                {!canSubmit ? <div className="muted">Please enter product and destination.</div> : null}
+                {!API_URL ? <div className="muted">Fix: Set VITE_API_URL in Vercel.</div> : null}
               </div>
             </div>
 
             {result ? (
               <div style={{ display: "flex", gap: "10px", marginTop: "14px", flexWrap: "wrap" }}>
-                <Badge tone={result.risk_level === "HIGH" ? "warning" : result.risk_level === "MEDIUM" ? "neutral" : "success"}>
-                  Risk: {result.risk_level}
-                </Badge>
+                <Badge tone={riskTone(result.risk_level)}>Risk: {result.risk_level}</Badge>
                 <Badge tone="neutral">Incoterm: {result.recommended_incoterm}</Badge>
                 <Badge tone="neutral">Stage: {result.journey_stage}</Badge>
               </div>
@@ -604,7 +649,13 @@ export default function Dashboard({ user }) {
           <Card
             title="HS Code Suggestions"
             subtitle="Initial classification guidance (confirm before shipping)"
-            right={result?.hs_code_suggestions?.length ? <Badge tone="success">{result.hs_code_suggestions.length} suggestion(s)</Badge> : <Badge tone="neutral">None</Badge>}
+            right={
+              result?.hs_code_suggestions?.length ? (
+                <Badge tone="success">{result.hs_code_suggestions.length} suggestion(s)</Badge>
+              ) : (
+                <Badge tone="neutral">None</Badge>
+              )
+            }
           >
             {result?.hs_code_suggestions?.length ? (
               <div className="hsList">
@@ -629,7 +680,9 @@ export default function Dashboard({ user }) {
                   );
                 })}
 
-                <div className="muted" style={{ marginTop: "10px" }}>{result.hs_note || "HS code suggestions are guidance only."}</div>
+                <div className="muted" style={{ marginTop: "10px" }}>
+                  {result.hs_note || "HS code suggestions are guidance only."}
+                </div>
 
                 <div style={{ display: "flex", gap: "10px", marginTop: "12px", flexWrap: "wrap" }}>
                   <button className="btn secondary" disabled={!selectedHs || !!lockedHs} onClick={() => setLockedHs(selectedHs)}>
@@ -644,13 +697,24 @@ export default function Dashboard({ user }) {
                     {saving ? "Saving..." : "Save Report"}
                   </button>
 
-                  <button className="btn secondary" disabled={!lockedHs} onClick={() => { setLockedHs(null); setSavedReportId(null); }}>
+                  <button
+                    className="btn secondary"
+                    disabled={!lockedHs}
+                    onClick={() => {
+                      setLockedHs(null);
+                      setSavedReportId(null);
+                    }}
+                  >
                     Unlock
                   </button>
                 </div>
 
                 <div className="muted" style={{ marginTop: 8 }}>
-                  {lockedHs ? `Final HS code locked: ${lockedHs.code}` : selectedHs ? `Selected: ${selectedHs.code} (click Confirm to lock)` : "Tip: click a suggestion to select it"}
+                  {lockedHs
+                    ? `Final HS code locked: ${lockedHs.code}`
+                    : selectedHs
+                    ? `Selected: ${selectedHs.code} (click Confirm to lock)`
+                    : "Tip: click a suggestion to select it"}
                 </div>
 
                 {savedReportId ? (
@@ -661,31 +725,30 @@ export default function Dashboard({ user }) {
               </div>
             ) : (
               <div className="muted">
-                {result?.hs_note || "Run a check to get HS code guidance."}
-                <div style={{ marginTop: 10 }}>
-                  Tip: add more details like <b>ingredients, packaging, processed/raw</b>. Example: <b>Makhana (roasted, retail packed)</b>.
-                </div>
+                {result?.hs_note || "No HS suggestion yet. Add more detail like material/processing/use."}
               </div>
             )}
           </Card>
 
           <div className="results">
             <Card title="Required Documents" subtitle="What you’ll typically need to prepare" right={result ? <Badge tone="success">Ready</Badge> : <Badge tone="neutral">Waiting</Badge>}>
-              <List items={safeList(result?.documents, ["Commercial Invoice", "Packing List", "Certificate of Origin", "HS Code confirmation"])} empty="Run a check to generate your checklist." />
+              <List items={result?.documents} empty="Run a check to generate your checklist." />
             </Card>
 
-            <Card title="Warnings" subtitle="Things that commonly cause delays or mistakes" right={result?.warnings?.length ? <Badge tone="warning">{result.warnings.length} alerts</Badge> : <Badge tone="neutral">None</Badge>}>
-              <List items={safeList(result?.warnings, ["Always verify destination regulations"])} empty="No warnings yet." />
+            <Card
+              title="Warnings"
+              subtitle="Things that commonly cause delays or mistakes"
+              right={result?.warnings?.length ? <Badge tone="warning">{result.warnings.length} alerts</Badge> : <Badge tone="neutral">None</Badge>}
+            >
+              <List items={result?.warnings} empty="No warnings yet." />
             </Card>
 
             <Card title="Next Steps" subtitle="Your recommended actions from here" right={result ? <Badge tone="neutral">Action plan</Badge> : null}>
-              <List items={safeList(result?.nextSteps, ["Confirm HS code", "Talk to logistics partner", "Prepare compliance docs"])} empty="Run a check to see next steps." />
+              <List items={result?.nextSteps} empty="Run a check to see next steps." />
             </Card>
           </div>
 
-          <div className="footerNote">
-            This is your v1. Next we’ll add saved journeys, subscriptions, and country rules.
-          </div>
+          <div className="footerNote">This is your v1. Next we’ll add country-specific rules and document templates.</div>
         </main>
       </div>
     </div>
