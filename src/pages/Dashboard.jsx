@@ -44,6 +44,33 @@ function formatDate(iso) {
   }
 }
 
+const DOC_DETAILS = {
+  "Commercial Invoice": {
+    why: "Customs uses this to assess value, duties, and verify buyer/seller details.",
+    include: ["Seller & buyer details", "Invoice number/date", "HS code", "Incoterm", "Currency", "Unit price & total", "Country of origin"],
+  },
+  "Packing List": {
+    why: "Helps customs and carriers verify shipment contents and weights.",
+    include: ["Carton count", "Gross/net weight", "Dimensions", "Marks/labels", "Item breakdown per carton"],
+  },
+  "Certificate of Origin": {
+    why: "Proves where goods were produced—used for duty treatment and compliance.",
+    include: ["Exporter details", "Consignee", "Origin statement", "Signature/stamp (if required)"],
+  },
+  "EORI Number": {
+    why: "Required for customs clearance in the UK/EU. Usually needed by importer and sometimes exporter.",
+    include: ["Importer EORI", "Broker/forwarder details"],
+  },
+  "Ingredients / Product Specification Sheet": {
+    why: "For food exports, helps with labeling, ingredient compliance, allergens, and buyer due diligence.",
+    include: ["Ingredients", "Allergen statement", "Processing method", "Shelf life", "Packaging type", "Storage conditions"],
+  },
+  "Product Specification Sheet (materials, composition, use)": {
+    why: "When HS code is unclear, this is needed for accurate classification and compliance.",
+    include: ["Composition/material", "Use/purpose", "Manufacturing process", "Photos", "Packaging details"],
+  }
+};
+
 function riskTone(risk) {
   if (risk === "HIGH") return "warning";
   if (risk === "MEDIUM") return "neutral";
@@ -577,9 +604,43 @@ export default function Dashboard({ user }) {
                 </div>
 
                 <div style={{ marginTop: 14 }}>
-                  <Card title="Required Documents">
-                    <List items={selectedReport.result?.documents || []} empty="None" />
-                  </Card>
+                  <Card title="Required Documents" subtitle="What you’ll typically need to prepare (with guidance)">
+  {!result?.documents?.length ? (
+    <div className="muted">Run a check to generate your checklist.</div>
+  ) : (
+    <div style={{ display: "grid", gap: 10 }}>
+      {result.documents.map((d, i) => {
+        const info = DOC_DETAILS[d];
+        return (
+          <div key={i} className="hsRow" style={{ cursor: "default" }}>
+            <div className="hsText">
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                <b>{d}</b>
+                <Badge tone="neutral">Required</Badge>
+              </div>
+              <div className="muted" style={{ marginTop: 6 }}>
+                {info?.why || "Standard export document. (We’ll add full guidance in the next update.)"}
+              </div>
+              {info?.include?.length ? (
+                <div style={{ marginTop: 8 }}>
+                  <div className="muted" style={{ marginBottom: 6 }}>Include:</div>
+                  <ul className="list">
+                    {info.include.map((x, idx) => (
+                      <li key={idx} className="list__item">
+                        <span className="dot" />
+                        <span>{x}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  )}
+</Card>
 
                   <Card title="Warnings">
                     <List items={selectedReport.result?.warnings || []} empty="None" />
