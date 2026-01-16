@@ -944,6 +944,55 @@ const downloadProductSpecTemplate = () => {
             <Card title="Next Steps" subtitle="Your recommended actions from here" right={result ? <Badge tone="neutral">Action plan</Badge> : null}>
               <List items={result?.nextSteps} empty="Run a check to see next steps." />
             </Card>
+
+            <Card
+  title="UK Rules Pack"
+  subtitle="Country-specific compliance checklist & official links"
+  right={result ? <Badge tone="neutral">UK-first</Badge> : <Badge tone="neutral">Waiting</Badge>}
+>
+  {!result ? (
+    <div className="muted">Run a check to load country rules.</div>
+  ) : (
+    <>
+      <div style={{ marginBottom: 10 }}>
+        <div className="muted" style={{ marginBottom: 6 }}>Compliance checklist</div>
+        <List items={result.compliance_checklist || []} empty="No checklist available yet." />
+      </div>
+
+      <div style={{ marginBottom: 10 }}>
+        <div className="muted" style={{ marginBottom: 6 }}>Key rules</div>
+        {(result.country_rules || []).length ? (
+          <ul className="list">
+            {result.country_rules.map((r, i) => (
+              <li key={i} className="list__item">
+                <span className="dot" />
+                <span><b>{r.title}:</b> {r.detail}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="muted">No rules available yet.</div>
+        )}
+      </div>
+
+      <div>
+        <div className="muted" style={{ marginBottom: 6 }}>Official links</div>
+        {(result.official_links || []).length ? (
+          <ul className="list">
+            {result.official_links.map((l, i) => (
+              <li key={i} className="list__item">
+                <span className="dot" />
+                <a href={l.url} target="_blank" rel="noreferrer">{l.label}</a>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="muted">No links available yet.</div>
+        )}
+      </div>
+    </>
+  )}
+</Card>
           </div>
 
           <div className="footerNote">This is your v1. Next we’ll add country-specific rules and document templates.</div>
