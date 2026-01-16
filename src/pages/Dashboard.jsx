@@ -268,6 +268,127 @@ export default function Dashboard({ user }) {
     }
   };
 
+  // ------------------ Templates (PDF) ------------------
+
+const downloadInvoiceTemplate = () => {
+  const doc = new jsPDF();
+  let y = 14;
+
+  doc.setFontSize(16);
+  doc.text("Commercial Invoice (Template)", 14, y);
+  y += 8;
+
+  doc.setFontSize(10);
+  doc.text("Exporter: ________________________________", 14, y); y += 6;
+  doc.text("Exporter Address: ________________________", 14, y); y += 6;
+  doc.text("Buyer/Importer: __________________________", 14, y); y += 6;
+  doc.text("Buyer Address: ___________________________", 14, y); y += 6;
+  doc.text("Invoice No: __________   Date: ___________", 14, y); y += 6;
+  doc.text(`Destination Country: ${country || "________"}`, 14, y); y += 6;
+  doc.text("Incoterm: ____________", 14, y); y += 8;
+
+  doc.setFontSize(12);
+  doc.text("Goods Description", 14, y); y += 6;
+
+  doc.setFontSize(10);
+  doc.text("Item: ____________________", 14, y);
+  doc.text("Qty: ______", 100, y);
+  y += 6;
+
+  doc.text("HS Code: ________________", 14, y);
+  doc.text("Unit Price: ________", 100, y);
+  y += 6;
+
+  doc.text("Country of Origin: _______________________", 14, y);
+  y += 8;
+
+  doc.setFontSize(12);
+  doc.text("Totals", 14, y); y += 6;
+  doc.setFontSize(10);
+  doc.text("Subtotal: ____________", 14, y); y += 6;
+  doc.text("Freight/Insurance: ____________", 14, y); y += 6;
+  doc.text("Total Invoice Value: ____________", 14, y); y += 10;
+
+  doc.text("Declaration:", 14, y); y += 6;
+  doc.text("I declare that the information on this invoice is true and correct.", 14, y); y += 8;
+
+  doc.text("Name: __________________  Signature: ________________", 14, y); y += 6;
+  doc.text("Company Stamp (if applicable): _______________________", 14, y);
+
+  doc.save("commercial-invoice-template.pdf");
+};
+
+const downloadPackingListTemplate = () => {
+  const doc = new jsPDF();
+  let y = 14;
+
+  doc.setFontSize(16);
+  doc.text("Packing List (Template)", 14, y);
+  y += 8;
+
+  doc.setFontSize(10);
+  doc.text("Exporter: ________________________________", 14, y); y += 6;
+  doc.text("Buyer/Importer: __________________________", 14, y); y += 6;
+  doc.text("Shipment Ref / Invoice No: _______________", 14, y); y += 6;
+  doc.text(`Destination Country: ${country || "________"}`, 14, y); y += 8;
+
+  doc.setFontSize(12);
+  doc.text("Carton Details", 14, y); y += 6;
+  doc.setFontSize(10);
+
+  doc.text("Carton No: ____   Marks: ________________", 14, y); y += 6;
+  doc.text("Items inside: ____________________________", 14, y); y += 6;
+  doc.text("Qty: ____   Net Wt: ____kg   Gross Wt: ____kg", 14, y); y += 6;
+  doc.text("Dimensions (LxWxH): ______________________", 14, y); y += 10;
+
+  doc.text("(Copy/paste this block for each carton)", 14, y); y += 10;
+
+  doc.setFontSize(12);
+  doc.text("Summary", 14, y); y += 6;
+  doc.setFontSize(10);
+  doc.text("Total Cartons: ____", 14, y); y += 6;
+  doc.text("Total Net Weight: ____kg", 14, y); y += 6;
+  doc.text("Total Gross Weight: ____kg", 14, y);
+
+  doc.save("packing-list-template.pdf");
+};
+
+const downloadProductSpecTemplate = () => {
+  const doc = new jsPDF();
+  let y = 14;
+
+  doc.setFontSize(16);
+  doc.text("Product Specification Sheet (Template)", 14, y);
+  y += 8;
+
+  doc.setFontSize(10);
+  doc.text(`Product Name: ${product || "________"}`, 14, y); y += 6;
+  doc.text("Brand (if any): __________________________", 14, y); y += 6;
+  doc.text("Product Type/Category: ___________________", 14, y); y += 6;
+
+  doc.text("Composition / Ingredients: ________________", 14, y); y += 6;
+  doc.text("Allergens (food): _________________________", 14, y); y += 6;
+  doc.text("Processing method: ________________________", 14, y); y += 6;
+
+  doc.text("Packaging type: ___________________________", 14, y); y += 6;
+  doc.text("Net weight per unit: ______________________", 14, y); y += 6;
+  doc.text("Shelf life / Expiry: ______________________", 14, y); y += 6;
+  doc.text("Storage conditions: _______________________", 14, y); y += 6;
+
+  doc.text("Use / Purpose: ____________________________", 14, y); y += 6;
+  doc.text("Country of Origin: ________________________", 14, y); y += 10;
+
+  doc.setFontSize(9);
+  doc.text(
+    "Tip: This sheet helps customs classification (HS code) and compliance checks. Attach ingredients, labels, and photos when possible.",
+    14,
+    y,
+    { maxWidth: 180 }
+  );
+
+  doc.save("product-spec-sheet-template.pdf");
+};
+
   const downloadPDFfromReport = (r) => {
     if (!r) return;
 
@@ -650,6 +771,22 @@ export default function Dashboard({ user }) {
                     <List items={selectedReport.result?.nextSteps || []} empty="None" />
                   </Card>
                 </div>
+
+                {result?.documents?.length ? (
+  <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 12 }}>
+    <button className="btn secondary" onClick={downloadInvoiceTemplate}>
+      Download Invoice Template
+    </button>
+
+    <button className="btn secondary" onClick={downloadPackingListTemplate}>
+      Download Packing List Template
+    </button>
+
+    <button className="btn secondary" onClick={downloadProductSpecTemplate}>
+      Download Product Spec Template
+    </button>
+  </div>
+) : null}
 
                 {import.meta.env.DEV ? (
                   <details style={{ marginTop: 14 }}>
