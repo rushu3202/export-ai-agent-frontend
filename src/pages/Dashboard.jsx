@@ -106,6 +106,7 @@ export default function Dashboard({ user }) {
   const canSubmit = product.trim().length > 0 && country.trim().length > 0;
 
   const API_URL = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
+  console.log("API_URL =", API_URL);
 
   const journeySteps = useMemo(
     () => [
@@ -568,6 +569,8 @@ const downloadProductSpecTemplate = () => {
     await supabase.auth.signOut();
     window.location.href = "/auth";
   };
+  const selectedResult = selectedReport?.result || {};
+const liveResult = result || null;
 
   return (
     <div className="page">
@@ -726,11 +729,11 @@ const downloadProductSpecTemplate = () => {
 
                 <div style={{ marginTop: 14 }}>
                   <Card title="Required Documents" subtitle="What you’ll typically need to prepare (with guidance)">
-  {!result?.documents?.length ? (
-    <div className="muted">Run a check to generate your checklist.</div>
+  {!selectedResult?.documents?.length ? (
+    <div className="muted">No documents found in this saved report.</div>
   ) : (
     <div style={{ display: "grid", gap: 10 }}>
-      {result.documents.map((d, i) => {
+      {selectedResult.documents.map((d, i) => {
         const info = DOC_DETAILS[d];
         return (
           <div key={i} className="hsRow" style={{ cursor: "default" }}>
@@ -772,7 +775,7 @@ const downloadProductSpecTemplate = () => {
                   </Card>
                 </div>
 
-                {result?.documents?.length ? (
+                {(selectedResult?.documents?.length || liveResult?.documents?.length) ? (
   <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 12 }}>
     <button className="btn secondary" onClick={downloadInvoiceTemplate}>
       Download Invoice Template
