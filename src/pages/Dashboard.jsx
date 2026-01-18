@@ -103,6 +103,8 @@ export default function Dashboard({ user }) {
   const [selectedReport, setSelectedReport] = useState(null);
   const [selectedReportLoading, setSelectedReportLoading] = useState(false);
 
+  const reportResult = selectedReport?.result || {};
+
   const canSubmit = product.trim().length > 0 && country.trim().length > 0;
 
   const API_URL = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
@@ -733,7 +735,7 @@ const liveResult = result || null;
     <div className="muted">No documents found in this saved report.</div>
   ) : (
     <div style={{ display: "grid", gap: 10 }}>
-      {selectedResult.documents.map((d, i) => {
+      {reportResult.documents?.map((d, i) => {
         const info = DOC_DETAILS[d];
         return (
           <div key={i} className="hsRow" style={{ cursor: "default" }}>
@@ -771,7 +773,7 @@ const liveResult = result || null;
                   </Card>
 
                   <Card title="Next Steps">
-                    <List items={selectedReport.result?.nextSteps || []} empty="None" />
+                    <List items={reportResult.nextSteps || []} empty="None" />
                   </Card>
                 </div>
 
@@ -939,7 +941,8 @@ const liveResult = result || null;
             <Card
               title="Warnings"
               subtitle="Things that commonly cause delays or mistakes"
-              right={result?.warnings?.length ? <Badge tone="warning">{result.warnings.length} alerts</Badge> : <Badge tone="neutral">None</Badge>}
+              right={(result.country_rules || []).length ? 
+                 <Badge tone="warning">{result.warnings.length} alerts</Badge> : <Badge tone="neutral">None</Badge>}
             >
               <List items={result?.warnings} empty="No warnings yet." />
             </Card>
@@ -959,14 +962,14 @@ const liveResult = result || null;
     <>
       <div style={{ marginBottom: 10 }}>
         <div className="muted" style={{ marginBottom: 6 }}>Compliance checklist</div>
-        <List items={result.compliance_checklist || []} empty="No checklist available yet." />
+       <List items={reportResult.compliance_checklist || []} empty="No checklist available yet." />
       </div>
 
       <div style={{ marginBottom: 10 }}>
         <div className="muted" style={{ marginBottom: 6 }}>Key rules</div>
         {(result.country_rules || []).length ? (
           <ul className="list">
-            {result.country_rules.map((r, i) => (
+            {reportResult.country_rules.map((r, i) => (
               <li key={i} className="list__item">
                 <span className="dot" />
                 <span><b>{r.title}:</b> {r.detail}</span>
@@ -980,9 +983,9 @@ const liveResult = result || null;
 
       <div>
         <div className="muted" style={{ marginBottom: 6 }}>Official links</div>
-        {(result.official_links || []).length ? (
+        {(reportResult.official_links || []).length ? (
           <ul className="list">
-            {result.official_links.map((l, i) => (
+            {reportResult.official_links.map((l, i) => (
               <li key={i} className="list__item">
                 <span className="dot" />
                 <a href={l.url} target="_blank" rel="noreferrer">{l.label}</a>
