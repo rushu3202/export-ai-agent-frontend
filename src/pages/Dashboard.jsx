@@ -1,3 +1,4 @@
+// src/pages/Dashboard.jsx
 import jsPDF from "jspdf";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../supabaseClient";
@@ -47,7 +48,15 @@ function formatDate(iso) {
 const DOC_DETAILS = {
   "Commercial Invoice": {
     why: "Customs uses this to assess value, duties, and verify buyer/seller details.",
-    include: ["Seller & buyer details", "Invoice number/date", "HS code", "Incoterm", "Currency", "Unit price & total", "Country of origin"],
+    include: [
+      "Seller & buyer details",
+      "Invoice number/date",
+      "HS code",
+      "Incoterm",
+      "Currency",
+      "Unit price & total",
+      "Country of origin",
+    ],
   },
   "Packing List": {
     why: "Helps customs and carriers verify shipment contents and weights.",
@@ -68,7 +77,7 @@ const DOC_DETAILS = {
   "Product Specification Sheet (materials, composition, use)": {
     why: "When HS code is unclear, this is needed for accurate classification and compliance.",
     include: ["Composition/material", "Use/purpose", "Manufacturing process", "Photos", "Packaging details"],
-  }
+  },
 };
 
 function riskTone(risk) {
@@ -103,7 +112,9 @@ export default function Dashboard({ user }) {
   const [selectedReport, setSelectedReport] = useState(null);
   const [selectedReportLoading, setSelectedReportLoading] = useState(false);
 
+  // ✅ SAFE objects (prevents null crashes)
   const reportResult = selectedReport?.result || {};
+  const liveResult = result || {};
 
   const canSubmit = product.trim().length > 0 && country.trim().length > 0;
 
@@ -250,13 +261,16 @@ export default function Dashboard({ user }) {
         documents:
           data.documents && data.documents.length
             ? data.documents
-            : ["Commercial Invoice", "Packing List", "Product Specification Sheet"],
+            : ["Commercial Invoice", "Packing List", "Product Specification Sheet (materials, composition, use)"],
         warnings: data.warnings || [],
         nextSteps:
           data.nextSteps && data.nextSteps.length
             ? data.nextSteps
             : ["Confirm HS code", "Check destination import rules", "Talk to a freight forwarder"],
         hs_code_suggestions: data.hs_code_suggestions || [],
+        compliance_checklist: data.compliance_checklist || [],
+        country_rules: data.country_rules || [],
+        official_links: data.official_links || [],
       };
 
       setResult(safe);
@@ -273,124 +287,124 @@ export default function Dashboard({ user }) {
 
   // ------------------ Templates (PDF) ------------------
 
-const downloadInvoiceTemplate = () => {
-  const doc = new jsPDF();
-  let y = 14;
+  const downloadInvoiceTemplate = () => {
+    const doc = new jsPDF();
+    let y = 14;
 
-  doc.setFontSize(16);
-  doc.text("Commercial Invoice (Template)", 14, y);
-  y += 8;
+    doc.setFontSize(16);
+    doc.text("Commercial Invoice (Template)", 14, y);
+    y += 8;
 
-  doc.setFontSize(10);
-  doc.text("Exporter: ________________________________", 14, y); y += 6;
-  doc.text("Exporter Address: ________________________", 14, y); y += 6;
-  doc.text("Buyer/Importer: __________________________", 14, y); y += 6;
-  doc.text("Buyer Address: ___________________________", 14, y); y += 6;
-  doc.text("Invoice No: __________   Date: ___________", 14, y); y += 6;
-  doc.text(`Destination Country: ${country || "________"}`, 14, y); y += 6;
-  doc.text("Incoterm: ____________", 14, y); y += 8;
+    doc.setFontSize(10);
+    doc.text("Exporter: ________________________________", 14, y); y += 6;
+    doc.text("Exporter Address: ________________________", 14, y); y += 6;
+    doc.text("Buyer/Importer: __________________________", 14, y); y += 6;
+    doc.text("Buyer Address: ___________________________", 14, y); y += 6;
+    doc.text("Invoice No: __________   Date: ___________", 14, y); y += 6;
+    doc.text(`Destination Country: ${country || "________"}`, 14, y); y += 6;
+    doc.text("Incoterm: ____________", 14, y); y += 8;
 
-  doc.setFontSize(12);
-  doc.text("Goods Description", 14, y); y += 6;
+    doc.setFontSize(12);
+    doc.text("Goods Description", 14, y); y += 6;
 
-  doc.setFontSize(10);
-  doc.text("Item: ____________________", 14, y);
-  doc.text("Qty: ______", 100, y);
-  y += 6;
+    doc.setFontSize(10);
+    doc.text("Item: ____________________", 14, y);
+    doc.text("Qty: ______", 100, y);
+    y += 6;
 
-  doc.text("HS Code: ________________", 14, y);
-  doc.text("Unit Price: ________", 100, y);
-  y += 6;
+    doc.text("HS Code: ________________", 14, y);
+    doc.text("Unit Price: ________", 100, y);
+    y += 6;
 
-  doc.text("Country of Origin: _______________________", 14, y);
-  y += 8;
+    doc.text("Country of Origin: _______________________", 14, y);
+    y += 8;
 
-  doc.setFontSize(12);
-  doc.text("Totals", 14, y); y += 6;
-  doc.setFontSize(10);
-  doc.text("Subtotal: ____________", 14, y); y += 6;
-  doc.text("Freight/Insurance: ____________", 14, y); y += 6;
-  doc.text("Total Invoice Value: ____________", 14, y); y += 10;
+    doc.setFontSize(12);
+    doc.text("Totals", 14, y); y += 6;
+    doc.setFontSize(10);
+    doc.text("Subtotal: ____________", 14, y); y += 6;
+    doc.text("Freight/Insurance: ____________", 14, y); y += 6;
+    doc.text("Total Invoice Value: ____________", 14, y); y += 10;
 
-  doc.text("Declaration:", 14, y); y += 6;
-  doc.text("I declare that the information on this invoice is true and correct.", 14, y); y += 8;
+    doc.text("Declaration:", 14, y); y += 6;
+    doc.text("I declare that the information on this invoice is true and correct.", 14, y); y += 8;
 
-  doc.text("Name: __________________  Signature: ________________", 14, y); y += 6;
-  doc.text("Company Stamp (if applicable): _______________________", 14, y);
+    doc.text("Name: __________________  Signature: ________________", 14, y); y += 6;
+    doc.text("Company Stamp (if applicable): _______________________", 14, y);
 
-  doc.save("commercial-invoice-template.pdf");
-};
+    doc.save("commercial-invoice-template.pdf");
+  };
 
-const downloadPackingListTemplate = () => {
-  const doc = new jsPDF();
-  let y = 14;
+  const downloadPackingListTemplate = () => {
+    const doc = new jsPDF();
+    let y = 14;
 
-  doc.setFontSize(16);
-  doc.text("Packing List (Template)", 14, y);
-  y += 8;
+    doc.setFontSize(16);
+    doc.text("Packing List (Template)", 14, y);
+    y += 8;
 
-  doc.setFontSize(10);
-  doc.text("Exporter: ________________________________", 14, y); y += 6;
-  doc.text("Buyer/Importer: __________________________", 14, y); y += 6;
-  doc.text("Shipment Ref / Invoice No: _______________", 14, y); y += 6;
-  doc.text(`Destination Country: ${country || "________"}`, 14, y); y += 8;
+    doc.setFontSize(10);
+    doc.text("Exporter: ________________________________", 14, y); y += 6;
+    doc.text("Buyer/Importer: __________________________", 14, y); y += 6;
+    doc.text("Shipment Ref / Invoice No: _______________", 14, y); y += 6;
+    doc.text(`Destination Country: ${country || "________"}`, 14, y); y += 8;
 
-  doc.setFontSize(12);
-  doc.text("Carton Details", 14, y); y += 6;
-  doc.setFontSize(10);
+    doc.setFontSize(12);
+    doc.text("Carton Details", 14, y); y += 6;
+    doc.setFontSize(10);
 
-  doc.text("Carton No: ____   Marks: ________________", 14, y); y += 6;
-  doc.text("Items inside: ____________________________", 14, y); y += 6;
-  doc.text("Qty: ____   Net Wt: ____kg   Gross Wt: ____kg", 14, y); y += 6;
-  doc.text("Dimensions (LxWxH): ______________________", 14, y); y += 10;
+    doc.text("Carton No: ____   Marks: ________________", 14, y); y += 6;
+    doc.text("Items inside: ____________________________", 14, y); y += 6;
+    doc.text("Qty: ____   Net Wt: ____kg   Gross Wt: ____kg", 14, y); y += 6;
+    doc.text("Dimensions (LxWxH): ______________________", 14, y); y += 10;
 
-  doc.text("(Copy/paste this block for each carton)", 14, y); y += 10;
+    doc.text("(Copy/paste this block for each carton)", 14, y); y += 10;
 
-  doc.setFontSize(12);
-  doc.text("Summary", 14, y); y += 6;
-  doc.setFontSize(10);
-  doc.text("Total Cartons: ____", 14, y); y += 6;
-  doc.text("Total Net Weight: ____kg", 14, y); y += 6;
-  doc.text("Total Gross Weight: ____kg", 14, y);
+    doc.setFontSize(12);
+    doc.text("Summary", 14, y); y += 6;
+    doc.setFontSize(10);
+    doc.text("Total Cartons: ____", 14, y); y += 6;
+    doc.text("Total Net Weight: ____kg", 14, y); y += 6;
+    doc.text("Total Gross Weight: ____kg", 14, y);
 
-  doc.save("packing-list-template.pdf");
-};
+    doc.save("packing-list-template.pdf");
+  };
 
-const downloadProductSpecTemplate = () => {
-  const doc = new jsPDF();
-  let y = 14;
+  const downloadProductSpecTemplate = () => {
+    const doc = new jsPDF();
+    let y = 14;
 
-  doc.setFontSize(16);
-  doc.text("Product Specification Sheet (Template)", 14, y);
-  y += 8;
+    doc.setFontSize(16);
+    doc.text("Product Specification Sheet (Template)", 14, y);
+    y += 8;
 
-  doc.setFontSize(10);
-  doc.text(`Product Name: ${product || "________"}`, 14, y); y += 6;
-  doc.text("Brand (if any): __________________________", 14, y); y += 6;
-  doc.text("Product Type/Category: ___________________", 14, y); y += 6;
+    doc.setFontSize(10);
+    doc.text(`Product Name: ${product || "________"}`, 14, y); y += 6;
+    doc.text("Brand (if any): __________________________", 14, y); y += 6;
+    doc.text("Product Type/Category: ___________________", 14, y); y += 6;
 
-  doc.text("Composition / Ingredients: ________________", 14, y); y += 6;
-  doc.text("Allergens (food): _________________________", 14, y); y += 6;
-  doc.text("Processing method: ________________________", 14, y); y += 6;
+    doc.text("Composition / Ingredients: ________________", 14, y); y += 6;
+    doc.text("Allergens (food): _________________________", 14, y); y += 6;
+    doc.text("Processing method: ________________________", 14, y); y += 6;
 
-  doc.text("Packaging type: ___________________________", 14, y); y += 6;
-  doc.text("Net weight per unit: ______________________", 14, y); y += 6;
-  doc.text("Shelf life / Expiry: ______________________", 14, y); y += 6;
-  doc.text("Storage conditions: _______________________", 14, y); y += 6;
+    doc.text("Packaging type: ___________________________", 14, y); y += 6;
+    doc.text("Net weight per unit: ______________________", 14, y); y += 6;
+    doc.text("Shelf life / Expiry: ______________________", 14, y); y += 6;
+    doc.text("Storage conditions: _______________________", 14, y); y += 6;
 
-  doc.text("Use / Purpose: ____________________________", 14, y); y += 6;
-  doc.text("Country of Origin: ________________________", 14, y); y += 10;
+    doc.text("Use / Purpose: ____________________________", 14, y); y += 6;
+    doc.text("Country of Origin: ________________________", 14, y); y += 10;
 
-  doc.setFontSize(9);
-  doc.text(
-    "Tip: This sheet helps customs classification (HS code) and compliance checks. Attach ingredients, labels, and photos when possible.",
-    14,
-    y,
-    { maxWidth: 180 }
-  );
+    doc.setFontSize(9);
+    doc.text(
+      "Tip: This sheet helps customs classification (HS code) and compliance checks. Attach ingredients, labels, and photos when possible.",
+      14,
+      y,
+      { maxWidth: 180 }
+    );
 
-  doc.save("product-spec-sheet-template.pdf");
-};
+    doc.save("product-spec-sheet-template.pdf");
+  };
 
   const downloadPDFfromReport = (r) => {
     if (!r) return;
@@ -491,8 +505,8 @@ const downloadProductSpecTemplate = () => {
     doc.text(`Product: ${product}`, 14, y); y += 6;
     doc.text(`Destination: ${country}`, 14, y); y += 6;
     doc.text(`Experience: ${experience}`, 14, y); y += 6;
-    doc.text(`Risk Level: ${result.risk_level || "-"}`, 14, y); y += 6;
-    doc.text(`Incoterm: ${result.recommended_incoterm || "-"}`, 14, y); y += 8;
+    doc.text(`Risk Level: ${liveResult.risk_level || "-"}`, 14, y); y += 6;
+    doc.text(`Incoterm: ${liveResult.recommended_incoterm || "-"}`, 14, y); y += 8;
 
     doc.setFontSize(13);
     doc.text("HS Code", 14, y); y += 6;
@@ -503,7 +517,7 @@ const downloadProductSpecTemplate = () => {
     doc.setFontSize(13);
     doc.text("Required Documents", 14, y); y += 6;
     doc.setFontSize(11);
-    (result.documents || []).forEach((d) => {
+    (liveResult.documents || []).forEach((d) => {
       doc.text(`• ${d}`, 16, y);
       y += 5;
     });
@@ -512,7 +526,7 @@ const downloadProductSpecTemplate = () => {
     doc.setFontSize(13);
     doc.text("Warnings", 14, y); y += 6;
     doc.setFontSize(11);
-    ((result.warnings && result.warnings.length ? result.warnings : ["None"]) || []).forEach((w) => {
+    ((liveResult.warnings && liveResult.warnings.length ? liveResult.warnings : ["None"]) || []).forEach((w) => {
       doc.text(`• ${w}`, 16, y);
       y += 5;
     });
@@ -521,7 +535,7 @@ const downloadProductSpecTemplate = () => {
     doc.setFontSize(13);
     doc.text("Next Steps", 14, y); y += 6;
     doc.setFontSize(11);
-    (result.nextSteps || []).forEach((n) => {
+    (liveResult.nextSteps || []).forEach((n) => {
       doc.text(`• ${n}`, 16, y);
       y += 5;
     });
@@ -571,8 +585,6 @@ const downloadProductSpecTemplate = () => {
     await supabase.auth.signOut();
     window.location.href = "/auth";
   };
-  const selectedResult = selectedReport?.result || {};
-const liveResult = result || null;
 
   return (
     <div className="page">
@@ -587,9 +599,7 @@ const liveResult = result || null;
 
         <div className="topbar__actions">
           <Badge tone="neutral">UK-first</Badge>
-          <Badge tone={API_URL ? "success" : "warning"}>
-            {API_URL ? "Backend Connected" : "Missing API URL"}
-          </Badge>
+          <Badge tone={API_URL ? "success" : "warning"}>{API_URL ? "Backend Connected" : "Missing API URL"}</Badge>
           <Badge tone="neutral">{user?.email || "Auth OK"}</Badge>
 
           <button className="btn secondary" onClick={() => fetchReports(true)} disabled={reportsLoading}>
@@ -731,45 +741,47 @@ const liveResult = result || null;
 
                 <div style={{ marginTop: 14 }}>
                   <Card title="Required Documents" subtitle="What you’ll typically need to prepare (with guidance)">
-  {!selectedResult?.documents?.length ? (
-    <div className="muted">No documents found in this saved report.</div>
-  ) : (
-    <div style={{ display: "grid", gap: 10 }}>
-      {reportResult.documents?.map((d, i) => {
-        const info = DOC_DETAILS[d];
-        return (
-          <div key={i} className="hsRow" style={{ cursor: "default" }}>
-            <div className="hsText">
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-                <b>{d}</b>
-                <Badge tone="neutral">Required</Badge>
-              </div>
-              <div className="muted" style={{ marginTop: 6 }}>
-                {info?.why || "Standard export document. (We’ll add full guidance in the next update.)"}
-              </div>
-              {info?.include?.length ? (
-                <div style={{ marginTop: 8 }}>
-                  <div className="muted" style={{ marginBottom: 6 }}>Include:</div>
-                  <ul className="list">
-                    {info.include.map((x, idx) => (
-                      <li key={idx} className="list__item">
-                        <span className="dot" />
-                        <span>{x}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  )}
-</Card>
+                    {!(reportResult.documents || []).length ? (
+                      <div className="muted">No documents found in this saved report.</div>
+                    ) : (
+                      <div style={{ display: "grid", gap: 10 }}>
+                        {(reportResult.documents || []).map((d, i) => {
+                          const info = DOC_DETAILS[d];
+                          return (
+                            <div key={i} className="hsRow" style={{ cursor: "default" }}>
+                              <div className="hsText">
+                                <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                                  <b>{d}</b>
+                                  <Badge tone="neutral">Required</Badge>
+                                </div>
+                                <div className="muted" style={{ marginTop: 6 }}>
+                                  {info?.why || "Standard export document. (We’ll add full guidance in the next update.)"}
+                                </div>
+                                {info?.include?.length ? (
+                                  <div style={{ marginTop: 8 }}>
+                                    <div className="muted" style={{ marginBottom: 6 }}>
+                                      Include:
+                                    </div>
+                                    <ul className="list">
+                                      {info.include.map((x, idx) => (
+                                        <li key={idx} className="list__item">
+                                          <span className="dot" />
+                                          <span>{x}</span>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                ) : null}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </Card>
 
                   <Card title="Warnings">
-                    <List items={selectedReport.result?.warnings || []} empty="None" />
+                    <List items={reportResult.warnings || []} empty="None" />
                   </Card>
 
                   <Card title="Next Steps">
@@ -777,21 +789,21 @@ const liveResult = result || null;
                   </Card>
                 </div>
 
-                {(selectedResult?.documents?.length || liveResult?.documents?.length) ? (
-  <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 12 }}>
-    <button className="btn secondary" onClick={downloadInvoiceTemplate}>
-      Download Invoice Template
-    </button>
+                {(reportResult?.documents?.length || liveResult?.documents?.length) ? (
+                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 12 }}>
+                    <button className="btn secondary" onClick={downloadInvoiceTemplate}>
+                      Download Invoice Template
+                    </button>
 
-    <button className="btn secondary" onClick={downloadPackingListTemplate}>
-      Download Packing List Template
-    </button>
+                    <button className="btn secondary" onClick={downloadPackingListTemplate}>
+                      Download Packing List Template
+                    </button>
 
-    <button className="btn secondary" onClick={downloadProductSpecTemplate}>
-      Download Product Spec Template
-    </button>
-  </div>
-) : null}
+                    <button className="btn secondary" onClick={downloadProductSpecTemplate}>
+                      Download Product Spec Template
+                    </button>
+                  </div>
+                ) : null}
 
                 {import.meta.env.DEV ? (
                   <details style={{ marginTop: 14 }}>
@@ -840,9 +852,9 @@ const liveResult = result || null;
 
             {result ? (
               <div style={{ display: "flex", gap: "10px", marginTop: "14px", flexWrap: "wrap" }}>
-                <Badge tone={riskTone(result.risk_level)}>Risk: {result.risk_level}</Badge>
-                <Badge tone="neutral">Incoterm: {result.recommended_incoterm}</Badge>
-                <Badge tone="neutral">Stage: {result.journey_stage}</Badge>
+                <Badge tone={riskTone(liveResult.risk_level)}>Risk: {liveResult.risk_level}</Badge>
+                <Badge tone="neutral">Incoterm: {liveResult.recommended_incoterm}</Badge>
+                <Badge tone="neutral">Stage: {liveResult.journey_stage}</Badge>
               </div>
             ) : null}
 
@@ -853,16 +865,16 @@ const liveResult = result || null;
             title="HS Code Suggestions"
             subtitle="Initial classification guidance (confirm before shipping)"
             right={
-              result?.hs_code_suggestions?.length ? (
-                <Badge tone="success">{result.hs_code_suggestions.length} suggestion(s)</Badge>
+              liveResult?.hs_code_suggestions?.length ? (
+                <Badge tone="success">{liveResult.hs_code_suggestions.length} suggestion(s)</Badge>
               ) : (
                 <Badge tone="neutral">None</Badge>
               )
             }
           >
-            {result?.hs_code_suggestions?.length ? (
+            {liveResult?.hs_code_suggestions?.length ? (
               <div className="hsList">
-                {result.hs_code_suggestions.map((s, i) => {
+                {liveResult.hs_code_suggestions.map((s, i) => {
                   const isSelected = selectedHs?.code === s.code;
                   const isLocked = lockedHs?.code === s.code;
 
@@ -884,7 +896,7 @@ const liveResult = result || null;
                 })}
 
                 <div className="muted" style={{ marginTop: "10px" }}>
-                  {result.hs_note || "HS code suggestions are guidance only."}
+                  {liveResult.hs_note || "HS code suggestions are guidance only."}
                 </div>
 
                 <div style={{ display: "flex", gap: "10px", marginTop: "12px", flexWrap: "wrap" }}>
@@ -927,78 +939,97 @@ const liveResult = result || null;
                 ) : null}
               </div>
             ) : (
-              <div className="muted">
-                {result?.hs_note || "No HS suggestion yet. Add more detail like material/processing/use."}
-              </div>
+              <div className="muted">{liveResult?.hs_note || "No HS suggestion yet. Add more detail like material/processing/use."}</div>
             )}
           </Card>
 
           <div className="results">
-            <Card title="Required Documents" subtitle="What you’ll typically need to prepare" right={result ? <Badge tone="success">Ready</Badge> : <Badge tone="neutral">Waiting</Badge>}>
-              <List items={result?.documents} empty="Run a check to generate your checklist." />
+            <Card
+              title="Required Documents"
+              subtitle="What you’ll typically need to prepare"
+              right={result ? <Badge tone="success">Ready</Badge> : <Badge tone="neutral">Waiting</Badge>}
+            >
+              <List items={liveResult?.documents || []} empty="Run a check to generate your checklist." />
             </Card>
 
+            {/* ✅ FIXED: no null crash when result is null */}
             <Card
               title="Warnings"
               subtitle="Things that commonly cause delays or mistakes"
-              right={(result.country_rules || []).length ? 
-                 <Badge tone="warning">{result.warnings.length} alerts</Badge> : <Badge tone="neutral">None</Badge>}
+              right={
+                (liveResult.warnings || []).length ? (
+                  <Badge tone="warning">{(liveResult.warnings || []).length} alerts</Badge>
+                ) : (
+                  <Badge tone="neutral">None</Badge>
+                )
+              }
             >
-              <List items={result?.warnings} empty="No warnings yet." />
+              <List items={liveResult.warnings || []} empty="No warnings yet." />
             </Card>
 
             <Card title="Next Steps" subtitle="Your recommended actions from here" right={result ? <Badge tone="neutral">Action plan</Badge> : null}>
-              <List items={result?.nextSteps} empty="Run a check to see next steps." />
+              <List items={liveResult?.nextSteps || []} empty="Run a check to see next steps." />
             </Card>
 
+            {/* ✅ Live Rules Pack uses liveResult safely */}
             <Card
-  title="UK Rules Pack"
-  subtitle="Country-specific compliance checklist & official links"
-  right={result ? <Badge tone="neutral">UK-first</Badge> : <Badge tone="neutral">Waiting</Badge>}
->
-  {!result ? (
-    <div className="muted">Run a check to load country rules.</div>
-  ) : (
-    <>
-      <div style={{ marginBottom: 10 }}>
-        <div className="muted" style={{ marginBottom: 6 }}>Compliance checklist</div>
-       <List items={reportResult.compliance_checklist || []} empty="No checklist available yet." />
-      </div>
+              title="UK Rules Pack"
+              subtitle="Country-specific compliance checklist & official links"
+              right={result ? <Badge tone="neutral">UK-first</Badge> : <Badge tone="neutral">Waiting</Badge>}
+            >
+              {!result ? (
+                <div className="muted">Run a check to load country rules.</div>
+              ) : (
+                <>
+                  <div style={{ marginBottom: 10 }}>
+                    <div className="muted" style={{ marginBottom: 6 }}>
+                      Compliance checklist
+                    </div>
+                    <List items={liveResult.compliance_checklist || []} empty="No checklist available yet." />
+                  </div>
 
-      <div style={{ marginBottom: 10 }}>
-        <div className="muted" style={{ marginBottom: 6 }}>Key rules</div>
-        {(result.country_rules || []).length ? (
-          <ul className="list">
-            {reportResult.country_rules.map((r, i) => (
-              <li key={i} className="list__item">
-                <span className="dot" />
-                <span><b>{r.title}:</b> {r.detail}</span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <div className="muted">No rules available yet.</div>
-        )}
-      </div>
+                  <div style={{ marginBottom: 10 }}>
+                    <div className="muted" style={{ marginBottom: 6 }}>
+                      Key rules
+                    </div>
+                    {(liveResult.country_rules || []).length ? (
+                      <ul className="list">
+                        {(liveResult.country_rules || []).map((r, i) => (
+                          <li key={i} className="list__item">
+                            <span className="dot" />
+                            <span>
+                              <b>{r.title}:</b> {r.detail}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <div className="muted">No rules available yet.</div>
+                    )}
+                  </div>
 
-      <div>
-        <div className="muted" style={{ marginBottom: 6 }}>Official links</div>
-        {(reportResult.official_links || []).length ? (
-          <ul className="list">
-            {reportResult.official_links.map((l, i) => (
-              <li key={i} className="list__item">
-                <span className="dot" />
-                <a href={l.url} target="_blank" rel="noreferrer">{l.label}</a>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <div className="muted">No links available yet.</div>
-        )}
-      </div>
-    </>
-  )}
-</Card>
+                  <div>
+                    <div className="muted" style={{ marginBottom: 6 }}>
+                      Official links
+                    </div>
+                    {(liveResult.official_links || []).length ? (
+                      <ul className="list">
+                        {(liveResult.official_links || []).map((l, i) => (
+                          <li key={i} className="list__item">
+                            <span className="dot" />
+                            <a href={l.url} target="_blank" rel="noreferrer">
+                              {l.label}
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <div className="muted">No links available yet.</div>
+                    )}
+                  </div>
+                </>
+              )}
+            </Card>
           </div>
 
           <div className="footerNote">This is your v1. Next we’ll add country-specific rules and document templates.</div>
