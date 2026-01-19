@@ -78,6 +78,14 @@ const DOC_DETAILS = {
     why: "When HS code is unclear, this is needed for accurate classification and compliance.",
     include: ["Composition/material", "Use/purpose", "Manufacturing process", "Photos", "Packaging details"],
   },
+  "Technical Datasheet / Manual": {
+    why: "For machinery parts, helps customs classification and buyer due diligence.",
+    include: ["Part number", "Material", "Use/function", "Drawings/photos", "Compatibility"],
+  },
+  "Safety Data Sheet (SDS/MSDS)": {
+    why: "For chemicals, required for safety, transport, and import compliance.",
+    include: ["Hazard classification", "Ingredients", "Handling/storage", "Transport info", "Emergency details"],
+  },
 };
 
 function riskTone(risk) {
@@ -112,6 +120,10 @@ export default function Dashboard({ user }) {
   const [selectedReport, setSelectedReport] = useState(null);
   const [selectedReportLoading, setSelectedReportLoading] = useState(false);
 
+  // Payment gate (MVP)
+  const [isPaid, setIsPaid] = useState(false);
+  const [payOpen, setPayOpen] = useState(false);
+
   // ✅ SAFE objects (prevents null crashes)
   const reportResult = selectedReport?.result || {};
   const liveResult = result || {};
@@ -119,7 +131,7 @@ export default function Dashboard({ user }) {
   const canSubmit = product.trim().length > 0 && country.trim().length > 0;
 
   const API_URL = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
-  console.log("API_URL =", API_URL);
+  const STRIPE_LINK = "https://buy.stripe.com/28E5kF6KSfXra8695BbEA00";
 
   const journeySteps = useMemo(
     () => [
@@ -133,15 +145,50 @@ export default function Dashboard({ user }) {
 
   const currentStepIndex = useMemo(() => {
     if (!result) return 0;
-    if (result?.documents?.length) return 2;
+    if (liveResult?.documents?.length) return 2;
     return 1;
-  }, [result]);
+  }, [result, liveResult]);
 
   async function getTokenOrThrow() {
     const { data: sessionData } = await supabase.auth.getSession();
     const token = sessionData?.session?.access_token;
     if (!token) throw new Error("Please sign in again.");
     return token;
+  }
+
+  async function loadPaidStatus() {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const u = sessionData?.session?.user;
+    if (!u) return;
+
+    const { data: existing, error: selErr } = await supabase
+      .from("user_profiles")
+      .select("is_paid")
+      .eq("id", u.id)
+      .single();
+
+    if (selErr && selErr.code !== "PGRST116") {
+      console.log("profile select error", selErr);
+    }
+
+    if (!existing) {
+      const { error: insErr } = await supabase.from("user_profiles").insert({
+        id: u.id,
+        email: u.email,
+        is_paid: false,
+      });
+      if (insErr) console.log("profile insert error", insErr);
+      setIsPaid(false);
+      return;
+    }
+
+    setIsPaid(!!existing.is_paid);
+  }
+
+  function requirePaid() {
+    if (isPaid) return true;
+    setPayOpen(true);
+    return false;
   }
 
   const fetchReports = async (autoOpenFirst = true) => {
@@ -228,6 +275,7 @@ export default function Dashboard({ user }) {
 
   useEffect(() => {
     fetchReports(true);
+    loadPaidStatus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -286,7 +334,6 @@ export default function Dashboard({ user }) {
   };
 
   // ------------------ Templates (PDF) ------------------
-
   const downloadInvoiceTemplate = () => {
     const doc = new jsPDF();
     let y = 14;
@@ -599,7 +646,9 @@ export default function Dashboard({ user }) {
 
         <div className="topbar__actions">
           <Badge tone="neutral">UK-first</Badge>
-          <Badge tone={API_URL ? "success" : "warning"}>{API_URL ? "Backend Connected" : "Missing API URL"}</Badge>
+          <Badge tone={API_URL ? "success" : "warning"}>
+            {API_URL ? "Backend Connected" : "Missing API URL"}
+          </Badge>
           <Badge tone="neutral">{user?.email || "Auth OK"}</Badge>
 
           <button className="btn secondary" onClick={() => fetchReports(true)} disabled={reportsLoading}>
@@ -686,6 +735,7 @@ export default function Dashboard({ user }) {
                       className="btn"
                       onClick={(e) => {
                         e.stopPropagation();
+                        if (!requirePaid()) return;
                         downloadPDFfromReport(selectedReport?.id === r.id ? selectedReport : r);
                       }}
                     >
@@ -731,7 +781,13 @@ export default function Dashboard({ user }) {
                 </div>
 
                 <div style={{ display: "flex", gap: 10, marginTop: 12, flexWrap: "wrap" }}>
-                  <button className="btn" onClick={() => downloadPDFfromReport(selectedReport)}>
+                  <button
+                    className="btn"
+                    onClick={() => {
+                      if (!requirePaid()) return;
+                      downloadPDFfromReport(selectedReport);
+                    }}
+                  >
                     Download PDF (Saved)
                   </button>
                   <button className="btn secondary" onClick={() => deleteReport(selectedReport.id)}>
@@ -757,6 +813,7 @@ export default function Dashboard({ user }) {
                                 <div className="muted" style={{ marginTop: 6 }}>
                                   {info?.why || "Standard export document. (We’ll add full guidance in the next update.)"}
                                 </div>
+
                                 {info?.include?.length ? (
                                   <div style={{ marginTop: 8 }}>
                                     <div className="muted" style={{ marginBottom: 6 }}>
@@ -791,15 +848,33 @@ export default function Dashboard({ user }) {
 
                 {(reportResult?.documents?.length || liveResult?.documents?.length) ? (
                   <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 12 }}>
-                    <button className="btn secondary" onClick={downloadInvoiceTemplate}>
+                    <button
+                      className="btn secondary"
+                      onClick={() => {
+                        if (!requirePaid()) return;
+                        downloadInvoiceTemplate();
+                      }}
+                    >
                       Download Invoice Template
                     </button>
 
-                    <button className="btn secondary" onClick={downloadPackingListTemplate}>
+                    <button
+                      className="btn secondary"
+                      onClick={() => {
+                        if (!requirePaid()) return;
+                        downloadPackingListTemplate();
+                      }}
+                    >
                       Download Packing List Template
                     </button>
 
-                    <button className="btn secondary" onClick={downloadProductSpecTemplate}>
+                    <button
+                      className="btn secondary"
+                      onClick={() => {
+                        if (!requirePaid()) return;
+                        downloadProductSpecTemplate();
+                      }}
+                    >
                       Download Product Spec Template
                     </button>
                   </div>
@@ -865,14 +940,14 @@ export default function Dashboard({ user }) {
             title="HS Code Suggestions"
             subtitle="Initial classification guidance (confirm before shipping)"
             right={
-              liveResult?.hs_code_suggestions?.length ? (
-                <Badge tone="success">{liveResult.hs_code_suggestions.length} suggestion(s)</Badge>
+              (liveResult?.hs_code_suggestions || []).length ? (
+                <Badge tone="success">{(liveResult?.hs_code_suggestions || []).length} suggestion(s)</Badge>
               ) : (
                 <Badge tone="neutral">None</Badge>
               )
             }
           >
-            {liveResult?.hs_code_suggestions?.length ? (
+            {(liveResult?.hs_code_suggestions || []).length ? (
               <div className="hsList">
                 {liveResult.hs_code_suggestions.map((s, i) => {
                   const isSelected = selectedHs?.code === s.code;
@@ -900,15 +975,33 @@ export default function Dashboard({ user }) {
                 </div>
 
                 <div style={{ display: "flex", gap: "10px", marginTop: "12px", flexWrap: "wrap" }}>
-                  <button className="btn secondary" disabled={!selectedHs || !!lockedHs} onClick={() => setLockedHs(selectedHs)}>
+                  <button
+                    className="btn secondary"
+                    disabled={!selectedHs || !!lockedHs}
+                    onClick={() => setLockedHs(selectedHs)}
+                  >
                     Confirm HS Code
                   </button>
 
-                  <button className="btn" disabled={!lockedHs} onClick={downloadPDF}>
+                  <button
+                    className="btn"
+                    disabled={!lockedHs}
+                    onClick={() => {
+                      if (!requirePaid()) return;
+                      downloadPDF();
+                    }}
+                  >
                     Download Export Report (PDF)
                   </button>
 
-                  <button className="btn secondary" disabled={!lockedHs || saving} onClick={saveReport}>
+                  <button
+                    className="btn secondary"
+                    disabled={!lockedHs || saving}
+                    onClick={() => {
+                      if (!requirePaid()) return;
+                      saveReport();
+                    }}
+                  >
                     {saving ? "Saving..." : "Save Report"}
                   </button>
 
@@ -952,7 +1045,6 @@ export default function Dashboard({ user }) {
               <List items={liveResult?.documents || []} empty="Run a check to generate your checklist." />
             </Card>
 
-            {/* ✅ FIXED: no null crash when result is null */}
             <Card
               title="Warnings"
               subtitle="Things that commonly cause delays or mistakes"
@@ -971,7 +1063,6 @@ export default function Dashboard({ user }) {
               <List items={liveResult?.nextSteps || []} empty="Run a check to see next steps." />
             </Card>
 
-            {/* ✅ Live Rules Pack uses liveResult safely */}
             <Card
               title="UK Rules Pack"
               subtitle="Country-specific compliance checklist & official links"
@@ -982,24 +1073,18 @@ export default function Dashboard({ user }) {
               ) : (
                 <>
                   <div style={{ marginBottom: 10 }}>
-                    <div className="muted" style={{ marginBottom: 6 }}>
-                      Compliance checklist
-                    </div>
+                    <div className="muted" style={{ marginBottom: 6 }}>Compliance checklist</div>
                     <List items={liveResult.compliance_checklist || []} empty="No checklist available yet." />
                   </div>
 
                   <div style={{ marginBottom: 10 }}>
-                    <div className="muted" style={{ marginBottom: 6 }}>
-                      Key rules
-                    </div>
+                    <div className="muted" style={{ marginBottom: 6 }}>Key rules</div>
                     {(liveResult.country_rules || []).length ? (
                       <ul className="list">
                         {(liveResult.country_rules || []).map((r, i) => (
                           <li key={i} className="list__item">
                             <span className="dot" />
-                            <span>
-                              <b>{r.title}:</b> {r.detail}
-                            </span>
+                            <span><b>{r.title}:</b> {r.detail}</span>
                           </li>
                         ))}
                       </ul>
@@ -1009,17 +1094,13 @@ export default function Dashboard({ user }) {
                   </div>
 
                   <div>
-                    <div className="muted" style={{ marginBottom: 6 }}>
-                      Official links
-                    </div>
+                    <div className="muted" style={{ marginBottom: 6 }}>Official links</div>
                     {(liveResult.official_links || []).length ? (
                       <ul className="list">
                         {(liveResult.official_links || []).map((l, i) => (
                           <li key={i} className="list__item">
                             <span className="dot" />
-                            <a href={l.url} target="_blank" rel="noreferrer">
-                              {l.label}
-                            </a>
+                            <a href={l.url} target="_blank" rel="noreferrer">{l.label}</a>
                           </li>
                         ))}
                       </ul>
@@ -1035,6 +1116,48 @@ export default function Dashboard({ user }) {
           <div className="footerNote">This is your v1. Next we’ll add country-specific rules and document templates.</div>
         </main>
       </div>
+
+      {/* PAY MODAL */}
+      {payOpen ? (
+        <div className="modalBackdrop">
+          <div className="modalCard">
+            <h3 style={{ marginTop: 0 }}>Upgrade to Export AI Agent Pro</h3>
+            <p className="muted">
+              Unlock PDF downloads, saved reports, and document templates.
+            </p>
+
+            <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
+              <div>✅ Download Export Report PDF</div>
+              <div>✅ Save reports & reuse later</div>
+              <div>✅ Invoice / Packing List / Spec templates</div>
+            </div>
+
+            <div style={{ display: "flex", gap: 10, marginTop: 16, flexWrap: "wrap" }}>
+              <a className="btn" href={STRIPE_LINK} target="_blank" rel="noreferrer">
+                Pay £9.99 / month
+              </a>
+
+              <button className="btn secondary" onClick={() => setPayOpen(false)}>
+                Not now
+              </button>
+            </div>
+
+            <div className="muted" style={{ marginTop: 12 }}>
+              After payment, click “I’ve paid” and we’ll unlock (manual for MVP).
+            </div>
+
+            <button
+              className="btn secondary"
+              style={{ marginTop: 10 }}
+              onClick={() => {
+                alert("For MVP: please send payment screenshot to support to unlock your account.");
+              }}
+            >
+              I’ve paid
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
