@@ -86,12 +86,32 @@ const DOC_DETAILS = {
     why: "For chemicals, required for safety, transport, and import compliance.",
     include: ["Hazard classification", "Ingredients", "Handling/storage", "Transport info", "Emergency details"],
   },
+  "Fabric Composition Certificate (if available)": {
+    why: "Helps confirm fiber content (cotton vs blends) for correct HS classification.",
+    include: ["Fiber breakdown %", "Test report (if available)", "Supplier/manufacturer details"],
+  },
+  "Label Artwork / Label Text (if available)": {
+    why: "Helps validate labeling requirements for destination market.",
+    include: ["Ingredients", "Allergens", "Net weight", "Best before/expiry", "Importer details (as required)"],
+  },
 };
 
 function riskTone(risk) {
   if (risk === "HIGH") return "warning";
   if (risk === "MEDIUM") return "neutral";
   return "success";
+}
+
+function getHsExplanation(explanations, code) {
+  if (!Array.isArray(explanations)) return "";
+  const hit = explanations.find((x) => x?.code === code);
+  return hit?.why || "";
+}
+
+function getDocReason(docReasons, docName) {
+  if (!Array.isArray(docReasons)) return "";
+  const hit = docReasons.find((x) => x?.doc === docName);
+  return hit?.reason || "";
 }
 
 export default function Dashboard({ user }) {
@@ -145,50 +165,15 @@ export default function Dashboard({ user }) {
 
   const currentStepIndex = useMemo(() => {
     if (!result) return 0;
-    if (liveResult?.documents?.length) return 2;
+    if (result?.documents?.length) return 2;
     return 1;
-  }, [result, liveResult]);
+  }, [result]);
 
   async function getTokenOrThrow() {
     const { data: sessionData } = await supabase.auth.getSession();
     const token = sessionData?.session?.access_token;
     if (!token) throw new Error("Please sign in again.");
     return token;
-  }
-
-  async function loadPaidStatus() {
-    const { data: sessionData } = await supabase.auth.getSession();
-    const u = sessionData?.session?.user;
-    if (!u) return;
-
-    const { data: existing, error: selErr } = await supabase
-      .from("user_profiles")
-      .select("is_paid")
-      .eq("id", u.id)
-      .single();
-
-    if (selErr && selErr.code !== "PGRST116") {
-      console.log("profile select error", selErr);
-    }
-
-    if (!existing) {
-      const { error: insErr } = await supabase.from("user_profiles").insert({
-        id: u.id,
-        email: u.email,
-        is_paid: false,
-      });
-      if (insErr) console.log("profile insert error", insErr);
-      setIsPaid(false);
-      return;
-    }
-
-    setIsPaid(!!existing.is_paid);
-  }
-
-  function requirePaid() {
-    if (isPaid) return true;
-    setPayOpen(true);
-    return false;
   }
 
   const fetchReports = async (autoOpenFirst = true) => {
@@ -273,11 +258,46 @@ export default function Dashboard({ user }) {
     }
   };
 
+  async function loadPaidStatus() {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const u = sessionData?.session?.user;
+    if (!u) return;
+
+    const { data: existing, error: selErr } = await supabase
+      .from("user_profiles")
+      .select("is_paid")
+      .eq("id", u.id)
+      .single();
+
+    if (selErr && selErr.code !== "PGRST116") {
+      console.log("profile select error", selErr);
+    }
+
+    if (!existing) {
+      const { error: insErr } = await supabase.from("user_profiles").insert({
+        id: u.id,
+        email: u.email,
+        is_paid: false,
+      });
+      if (insErr) console.log("profile insert error", insErr);
+      setIsPaid(false);
+      return;
+    }
+
+    setIsPaid(!!existing.is_paid);
+  }
+
   useEffect(() => {
     fetchReports(true);
     loadPaidStatus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  function requirePaid() {
+    if (isPaid) return true;
+    setPayOpen(true);
+    return false;
+  }
 
   const checkExport = async () => {
     if (!API_URL) {
@@ -303,7 +323,6 @@ export default function Dashboard({ user }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Backend error");
 
-      // Always show something (no blank sections)
       const safe = {
         ...data,
         documents:
@@ -316,6 +335,8 @@ export default function Dashboard({ user }) {
             ? data.nextSteps
             : ["Confirm HS code", "Check destination import rules", "Talk to a freight forwarder"],
         hs_code_suggestions: data.hs_code_suggestions || [],
+        hs_explanations: data.hs_explanations || [],
+        document_reasons: data.document_reasons || [],
         compliance_checklist: data.compliance_checklist || [],
         country_rules: data.country_rules || [],
         official_links: data.official_links || [],
@@ -644,12 +665,10 @@ export default function Dashboard({ user }) {
           </div>
         </div>
 
-        <div className="topbar__actions">
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
           <Badge tone="neutral">UK-first</Badge>
-          <Badge tone={API_URL ? "success" : "warning"}>
-            {API_URL ? "Backend Connected" : "Missing API URL"}
-          </Badge>
-          <Badge tone="neutral">{user?.email || "Auth OK"}</Badge>
+          <Badge tone={API_URL ? "success" : "warning"}>{API_URL ? "Backend Connected" : "Missing API URL"}</Badge>
+          <Badge tone="neutral">{user?.email || "-"}</Badge>
 
           <button className="btn secondary" onClick={() => fetchReports(true)} disabled={reportsLoading}>
             {reportsLoading ? "Refreshing…" : "Refresh Reports"}
@@ -774,7 +793,19 @@ export default function Dashboard({ user }) {
                   <Badge tone="neutral">HS: {selectedReport.hs_code}</Badge>
                   <Badge tone="neutral">Incoterm: {selectedReport.incoterm}</Badge>
                   <Badge tone={riskTone(selectedReport.risk_level)}>Risk: {selectedReport.risk_level}</Badge>
+
+                  {/* ✅ NEW (saved): category */}
+                  {reportResult?.product_category ? (
+                    <Badge tone="neutral">Category: {reportResult.product_category}</Badge>
+                  ) : null}
                 </div>
+
+                {/* ✅ NEW (saved): risk reason */}
+                {reportResult?.risk_reason ? (
+                  <div className="muted" style={{ marginTop: 10 }}>
+                    <b>Risk reason:</b> {reportResult.risk_reason}
+                  </div>
+                ) : null}
 
                 <div className="muted" style={{ marginTop: 10 }}>
                   Created: {formatDate(selectedReport.created_at)}
@@ -803,6 +834,8 @@ export default function Dashboard({ user }) {
                       <div style={{ display: "grid", gap: 10 }}>
                         {(reportResult.documents || []).map((d, i) => {
                           const info = DOC_DETAILS[d];
+                          const reason = getDocReason(reportResult.document_reasons, d);
+
                           return (
                             <div key={i} className="hsRow" style={{ cursor: "default" }}>
                               <div className="hsText">
@@ -810,9 +843,17 @@ export default function Dashboard({ user }) {
                                   <b>{d}</b>
                                   <Badge tone="neutral">Required</Badge>
                                 </div>
+
                                 <div className="muted" style={{ marginTop: 6 }}>
                                   {info?.why || "Standard export document. (We’ll add full guidance in the next update.)"}
                                 </div>
+
+                                {/* ✅ NEW (saved): document reason */}
+                                {reason ? (
+                                  <div className="muted" style={{ marginTop: 6 }}>
+                                    <b>Why it matters:</b> {reason}
+                                  </div>
+                                ) : null}
 
                                 {info?.include?.length ? (
                                   <div style={{ marginTop: 8 }}>
@@ -836,6 +877,22 @@ export default function Dashboard({ user }) {
                       </div>
                     )}
                   </Card>
+
+                  {/* ✅ NEW (saved): HS explanations */}
+                  {(reportResult?.hs_explanations || []).length ? (
+                    <Card title="HS Explanations" subtitle="Why the engine suggested these codes">
+                      <ul className="list">
+                        {(reportResult.hs_explanations || []).map((x, i) => (
+                          <li key={i} className="list__item">
+                            <span className="dot" />
+                            <span>
+                              <b>{x.code}:</b> {x.why}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </Card>
+                  ) : null}
 
                   <Card title="Warnings">
                     <List items={reportResult.warnings || []} empty="None" />
@@ -926,11 +983,25 @@ export default function Dashboard({ user }) {
             </div>
 
             {result ? (
-              <div style={{ display: "flex", gap: "10px", marginTop: "14px", flexWrap: "wrap" }}>
-                <Badge tone={riskTone(liveResult.risk_level)}>Risk: {liveResult.risk_level}</Badge>
-                <Badge tone="neutral">Incoterm: {liveResult.recommended_incoterm}</Badge>
-                <Badge tone="neutral">Stage: {liveResult.journey_stage}</Badge>
-              </div>
+              <>
+                <div style={{ display: "flex", gap: "10px", marginTop: "14px", flexWrap: "wrap" }}>
+                  <Badge tone={riskTone(liveResult.risk_level)}>Risk: {liveResult.risk_level}</Badge>
+                  <Badge tone="neutral">Incoterm: {liveResult.recommended_incoterm}</Badge>
+                  <Badge tone="neutral">Stage: {liveResult.journey_stage}</Badge>
+
+                  {/* ✅ NEW (live): category */}
+                  {liveResult?.product_category ? (
+                    <Badge tone="neutral">Category: {liveResult.product_category}</Badge>
+                  ) : null}
+                </div>
+
+                {/* ✅ NEW (live): risk reason */}
+                {liveResult?.risk_reason ? (
+                  <div className="muted" style={{ marginTop: 10 }}>
+                    <b>Risk reason:</b> {liveResult.risk_reason}
+                  </div>
+                ) : null}
+              </>
             ) : null}
 
             {error ? <div className="alert alert--error">{error}</div> : null}
@@ -940,18 +1011,19 @@ export default function Dashboard({ user }) {
             title="HS Code Suggestions"
             subtitle="Initial classification guidance (confirm before shipping)"
             right={
-              (liveResult?.hs_code_suggestions || []).length ? (
-                <Badge tone="success">{(liveResult?.hs_code_suggestions || []).length} suggestion(s)</Badge>
+              liveResult?.hs_code_suggestions?.length ? (
+                <Badge tone="success">{liveResult.hs_code_suggestions.length} suggestion(s)</Badge>
               ) : (
                 <Badge tone="neutral">None</Badge>
               )
             }
           >
-            {(liveResult?.hs_code_suggestions || []).length ? (
+            {liveResult?.hs_code_suggestions?.length ? (
               <div className="hsList">
                 {liveResult.hs_code_suggestions.map((s, i) => {
                   const isSelected = selectedHs?.code === s.code;
                   const isLocked = lockedHs?.code === s.code;
+                  const why = getHsExplanation(liveResult.hs_explanations, s.code);
 
                   return (
                     <div
@@ -964,6 +1036,10 @@ export default function Dashboard({ user }) {
                       <div className="hsText">
                         <div className="hsDesc">{s.description}</div>
                         <div className="muted">Confidence: {s.confidence}</div>
+
+                        {/* ✅ NEW (live): hs explanation */}
+                        {why ? <div className="muted" style={{ marginTop: 6 }}><b>Why:</b> {why}</div> : null}
+
                         {isLocked ? <div className="hsLockedText">✅ Locked as final HS code</div> : null}
                       </div>
                     </div>
@@ -975,11 +1051,7 @@ export default function Dashboard({ user }) {
                 </div>
 
                 <div style={{ display: "flex", gap: "10px", marginTop: "12px", flexWrap: "wrap" }}>
-                  <button
-                    className="btn secondary"
-                    disabled={!selectedHs || !!lockedHs}
-                    onClick={() => setLockedHs(selectedHs)}
-                  >
+                  <button className="btn secondary" disabled={!selectedHs || !!lockedHs} onClick={() => setLockedHs(selectedHs)}>
                     Confirm HS Code
                   </button>
 
@@ -1042,7 +1114,28 @@ export default function Dashboard({ user }) {
               subtitle="What you’ll typically need to prepare"
               right={result ? <Badge tone="success">Ready</Badge> : <Badge tone="neutral">Waiting</Badge>}
             >
-              <List items={liveResult?.documents || []} empty="Run a check to generate your checklist." />
+              {/* ✅ NEW (live): document reasons */}
+              {(liveResult?.documents || []).length ? (
+                <div style={{ display: "grid", gap: 10 }}>
+                  {(liveResult.documents || []).map((d, i) => {
+                    const reason = getDocReason(liveResult.document_reasons, d);
+                    return (
+                      <div key={i} className="hsRow" style={{ cursor: "default" }}>
+                        <div className="hsText">
+                          <b>{d}</b>
+                          {reason ? (
+                            <div className="muted" style={{ marginTop: 6 }}>
+                              <b>Why it matters:</b> {reason}
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="muted">Run a check to generate your checklist.</div>
+              )}
             </Card>
 
             <Card
@@ -1073,18 +1166,24 @@ export default function Dashboard({ user }) {
               ) : (
                 <>
                   <div style={{ marginBottom: 10 }}>
-                    <div className="muted" style={{ marginBottom: 6 }}>Compliance checklist</div>
+                    <div className="muted" style={{ marginBottom: 6 }}>
+                      Compliance checklist
+                    </div>
                     <List items={liveResult.compliance_checklist || []} empty="No checklist available yet." />
                   </div>
 
                   <div style={{ marginBottom: 10 }}>
-                    <div className="muted" style={{ marginBottom: 6 }}>Key rules</div>
+                    <div className="muted" style={{ marginBottom: 6 }}>
+                      Key rules
+                    </div>
                     {(liveResult.country_rules || []).length ? (
                       <ul className="list">
                         {(liveResult.country_rules || []).map((r, i) => (
                           <li key={i} className="list__item">
                             <span className="dot" />
-                            <span><b>{r.title}:</b> {r.detail}</span>
+                            <span>
+                              <b>{r.title}:</b> {r.detail}
+                            </span>
                           </li>
                         ))}
                       </ul>
@@ -1094,13 +1193,17 @@ export default function Dashboard({ user }) {
                   </div>
 
                   <div>
-                    <div className="muted" style={{ marginBottom: 6 }}>Official links</div>
+                    <div className="muted" style={{ marginBottom: 6 }}>
+                      Official links
+                    </div>
                     {(liveResult.official_links || []).length ? (
                       <ul className="list">
                         {(liveResult.official_links || []).map((l, i) => (
                           <li key={i} className="list__item">
                             <span className="dot" />
-                            <a href={l.url} target="_blank" rel="noreferrer">{l.label}</a>
+                            <a href={l.url} target="_blank" rel="noreferrer">
+                              {l.label}
+                            </a>
                           </li>
                         ))}
                       </ul>
@@ -1121,10 +1224,8 @@ export default function Dashboard({ user }) {
       {payOpen ? (
         <div className="modalBackdrop">
           <div className="modalCard">
-            <h3 style={{ marginTop: 0 }}>Upgrade to Export AI Agent Pro</h3>
-            <p className="muted">
-              Unlock PDF downloads, saved reports, and document templates.
-            </p>
+            <h3 style={{ marginTop: 0 }}>Upgrade to Export Pro</h3>
+            <p className="muted">Unlock PDF downloads, saved reports, and document templates.</p>
 
             <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
               <div>✅ Download Export Report PDF</div>
@@ -1143,14 +1244,14 @@ export default function Dashboard({ user }) {
             </div>
 
             <div className="muted" style={{ marginTop: 12 }}>
-              After payment, click “I’ve paid” and we’ll unlock (manual for MVP).
+              After payment, click “I’ve paid” and we’ll unlock instantly (manual for MVP).
             </div>
 
             <button
               className="btn secondary"
               style={{ marginTop: 10 }}
               onClick={() => {
-                alert("For MVP: please send payment screenshot to support to unlock your account.");
+                alert("Send payment screenshot to support (temporary). We'll unlock within minutes.");
               }}
             >
               I’ve paid
