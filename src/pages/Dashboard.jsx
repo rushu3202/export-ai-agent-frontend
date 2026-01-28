@@ -4,7 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../supabaseClient";
 import "../App.css";
 
-function Badge({ tone = "neutral", children }) {
+<Badge tone="neutral">
+  {liveResult?.country_pack?.badge || "Global"}
+</Badge>
+ {
   return <span className={`badge badge--${tone}`}>{children}</span>;
 }
 
