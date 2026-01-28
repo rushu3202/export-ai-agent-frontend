@@ -259,33 +259,43 @@ export default function Dashboard({ user }) {
   };
 
   async function loadPaidStatus() {
-    const { data: sessionData } = await supabase.auth.getSession();
-    const u = sessionData?.session?.user;
-    if (!u) return;
+  const { data: sessionData } = await supabase.auth.getSession();
+  const u = sessionData?.session?.user;
+  if (!u?.email) return;
 
+  try {
+    // Get paid status by email
     const { data: existing, error: selErr } = await supabase
       .from("user_profiles")
       .select("is_paid")
-      .eq("id", u.id)
+      .eq("email", u.email)
       .single();
 
-    if (selErr && selErr.code !== "PGRST116") {
-      console.log("profile select error", selErr);
-    }
-
-    if (!existing) {
+    // If row not found → create it
+    if (selErr && selErr.code === "PGRST116") {
       const { error: insErr } = await supabase.from("user_profiles").insert({
         id: u.id,
         email: u.email,
         is_paid: false,
       });
+
       if (insErr) console.log("profile insert error", insErr);
       setIsPaid(false);
       return;
     }
 
-    setIsPaid(!!existing.is_paid);
+    if (selErr) {
+      console.log("profile select error", selErr);
+      setIsPaid(false);
+      return;
+    }
+
+    setIsPaid(!!existing?.is_paid);
+  } catch (e) {
+    console.log("loadPaidStatus error", e);
+    setIsPaid(false);
   }
+}
 
   useEffect(() => {
     fetchReports(true);
@@ -322,9 +332,9 @@ export default function Dashboard({ user }) {
 
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Backend error");
-
       const safe = {
         ...data,
+        country_pack: data.country_pack || null,
         documents:
           data.documents && data.documents.length
             ? data.documents
@@ -1156,109 +1166,68 @@ export default function Dashboard({ user }) {
               <List items={liveResult?.nextSteps || []} empty="Run a check to see next steps." />
             </Card>
 
-            <Card
-              title="UK Rules Pack"
-              subtitle="Country-specific compliance checklist & official links"
-              right={result ? <Badge tone="neutral">UK-first</Badge> : <Badge tone="neutral">Waiting</Badge>}
-            >
-              {!result ? (
-                <div className="muted">Run a check to load country rules.</div>
-              ) : (
-                <>
-                  <div style={{ marginBottom: 10 }}>
-                    <div className="muted" style={{ marginBottom: 6 }}>
-                      Compliance checklist
-                    </div>
-                    <List items={liveResult.compliance_checklist || []} empty="No checklist available yet." />
-                  </div>
-
-                  <div style={{ marginBottom: 10 }}>
-                    <div className="muted" style={{ marginBottom: 6 }}>
-                      Key rules
-                    </div>
-                    {(liveResult.country_rules || []).length ? (
-                      <ul className="list">
-                        {(liveResult.country_rules || []).map((r, i) => (
-                          <li key={i} className="list__item">
-                            <span className="dot" />
-                            <span>
-                              <b>{r.title}:</b> {r.detail}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <div className="muted">No rules available yet.</div>
-                    )}
-                  </div>
-
-                  <div>
-                    <div className="muted" style={{ marginBottom: 6 }}>
-                      Official links
-                    </div>
-                    {(liveResult.official_links || []).length ? (
-                      <ul className="list">
-                        {(liveResult.official_links || []).map((l, i) => (
-                          <li key={i} className="list__item">
-                            <span className="dot" />
-                            <a href={l.url} target="_blank" rel="noreferrer">
-                              {l.label}
-                            </a>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <div className="muted">No links available yet.</div>
-                    )}
-                  </div>
-                </>
-              )}
-            </Card>
-          </div>
-
-          <div className="footerNote">This is your v1. Next we’ll add country-specific rules and document templates.</div>
-        </main>
-      </div>
-
-      {/* PAY MODAL */}
-      {payOpen ? (
-        <div className="modalBackdrop">
-          <div className="modalCard">
-            <h3 style={{ marginTop: 0 }}>Upgrade to Export Pro</h3>
-            <p className="muted">Unlock PDF downloads, saved reports, and document templates.</p>
-
-            <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
-              <div>✅ Download Export Report PDF</div>
-              <div>✅ Save reports & reuse later</div>
-              <div>✅ Invoice / Packing List / Spec templates</div>
-            </div>
-
-            <div style={{ display: "flex", gap: 10, marginTop: 16, flexWrap: "wrap" }}>
-              <a className="btn" href={STRIPE_LINK} target="_blank" rel="noreferrer">
-                Pay £9.99 / month
-              </a>
-
-              <button className="btn secondary" onClick={() => setPayOpen(false)}>
-                Not now
-              </button>
-            </div>
-
-            <div className="muted" style={{ marginTop: 12 }}>
-              After payment, click “I’ve paid” and we’ll unlock instantly (manual for MVP).
-            </div>
-
-            <button
-              className="btn secondary"
-              style={{ marginTop: 10 }}
-              onClick={() => {
-                alert("Send payment screenshot to support (temporary). We'll unlock within minutes.");
-              }}
-            >
-              I’ve paid
-            </button>
-          </div>
+           <Card
+  title={liveResult?.country_pack?.title ? liveResult.country_pack.title : "Country Rules Pack"}
+  subtitle="Country-specific compliance checklist & official links"
+  right={result ? <Badge tone="neutral">{(country || "Country").toUpperCase()}</Badge> : <Badge tone="neutral">Waiting</Badge>}
+>
+  {!result ? (
+    <div className="muted">Run a check to load country rules.</div>
+  ) : (
+    <>
+      {/* Pack title */}
+      {liveResult?.country_pack?.title ? (
+        <div className="muted" style={{ marginBottom: 10 }}>
+          Pack: <b>{liveResult.country_pack.title}</b>
         </div>
       ) : null}
-    </div>
-  );
-}
+
+      <div style={{ marginBottom: 10 }}>
+        <div className="muted" style={{ marginBottom: 6 }}>
+          Compliance checklist
+        </div>
+        <List items={liveResult.compliance_checklist || []} empty="No checklist available yet." />
+      </div>
+
+      <div style={{ marginBottom: 10 }}>
+        <div className="muted" style={{ marginBottom: 6 }}>
+          Key rules
+        </div>
+        {(liveResult.country_rules || []).length ? (
+          <ul className="list">
+            {(liveResult.country_rules || []).map((r, i) => (
+              <li key={i} className="list__item">
+                <span className="dot" />
+                <span>
+                  <b>{r.title}:</b> {r.detail}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="muted">No rules available yet.</div>
+        )}
+      </div>
+
+      <div>
+        <div className="muted" style={{ marginBottom: 6 }}>
+          Official links
+        </div>
+        {(liveResult.official_links || []).length ? (
+          <ul className="list">
+            {(liveResult.official_links || []).map((l, i) => (
+              <li key={i} className="list__item">
+                <span className="dot" />
+                <a href={l.url} target="_blank" rel="noreferrer">
+                  {l.label}
+                </a>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="muted">No links available yet.</div>
+        )}
+      </div>
+    </>
+  )}
+</Card>
