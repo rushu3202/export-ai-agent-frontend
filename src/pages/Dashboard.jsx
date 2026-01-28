@@ -5,7 +5,7 @@ import { supabase } from "../supabaseClient";
 import "../App.css";
 
 <Badge tone="neutral">
-  {liveResult?.country_pack?.badge || "Global"}
+  {String(country || "").toUpperCase() === "UK" ? "UK-first" : "Global"}
 </Badge>
  {
   return <span className={`badge badge--${tone}`}>{children}</span>;
