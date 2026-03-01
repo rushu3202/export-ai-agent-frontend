@@ -4,10 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../supabaseClient";
 import "../App.css";
 
-<Badge tone="neutral">
-  {String(country || "").toUpperCase() === "UK" ? "UK-first" : "Global"}
-</Badge>
- {
+function Badge({ tone = "neutral", children }) {
   return <span className={`badge badge--${tone}`}>{children}</span>;
 }
 
@@ -1170,15 +1167,24 @@ export default function Dashboard({ user }) {
             </Card>
 
            <Card
-  title={liveResult?.country_pack?.title ? liveResult.country_pack.title : "Country Rules Pack"}
+  title={
+    liveResult?.country_pack?.title
+      ? liveResult.country_pack.title
+      : "Country Rules Pack"
+  }
   subtitle="Country-specific compliance checklist & official links"
-  right={result ? <Badge tone="neutral">{(country || "Country").toUpperCase()}</Badge> : <Badge tone="neutral">Waiting</Badge>}
+  right={
+    result ? (
+      <Badge tone="neutral">{(country || "Country").toUpperCase()}</Badge>
+    ) : (
+      <Badge tone="neutral">Waiting</Badge>
+    )
+  }
 >
   {!result ? (
     <div className="muted">Run a check to load country rules.</div>
   ) : (
     <>
-      {/* Pack title */}
       {liveResult?.country_pack?.title ? (
         <div className="muted" style={{ marginBottom: 10 }}>
           Pack: <b>{liveResult.country_pack.title}</b>
@@ -1189,16 +1195,20 @@ export default function Dashboard({ user }) {
         <div className="muted" style={{ marginBottom: 6 }}>
           Compliance checklist
         </div>
-        <List items={liveResult.compliance_checklist || []} empty="No checklist available yet." />
+        <List
+          items={liveResult.compliance_checklist || []}
+          empty="No checklist available yet."
+        />
       </div>
 
       <div style={{ marginBottom: 10 }}>
         <div className="muted" style={{ marginBottom: 6 }}>
           Key rules
         </div>
+
         {(liveResult.country_rules || []).length ? (
           <ul className="list">
-            {(liveResult.country_rules || []).map((r, i) => (
+            {liveResult.country_rules.map((r, i) => (
               <li key={i} className="list__item">
                 <span className="dot" />
                 <span>
@@ -1216,9 +1226,10 @@ export default function Dashboard({ user }) {
         <div className="muted" style={{ marginBottom: 6 }}>
           Official links
         </div>
+
         {(liveResult.official_links || []).length ? (
           <ul className="list">
-            {(liveResult.official_links || []).map((l, i) => (
+            {liveResult.official_links.map((l, i) => (
               <li key={i} className="list__item">
                 <span className="dot" />
                 <a href={l.url} target="_blank" rel="noreferrer">
@@ -1233,4 +1244,10 @@ export default function Dashboard({ user }) {
       </div>
     </>
   )}
-</Card>
+              </Card>
+        </div>
+      </main>
+    </div>
+  </div>
+);
+}
