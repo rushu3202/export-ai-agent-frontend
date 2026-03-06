@@ -9,6 +9,9 @@ import BuyerFinder from "../components/BuyerFinder";
 import MarketAnalyzer from "../components/MarketAnalyzer";
 import AIAdvisor from "../components/AIAdvisor";
 import ProfitSimulator from "../components/ProfitSimulator";
+import ImporterFinder from "../components/ImporterFinder";
+import TariffLookup from "../components/TariffLookup";
+import BuyerDiscovery from "../components/BuyerDiscovery";
 
 function Badge({ tone = "neutral", children }) {
   return <span className={`badge badge--${tone}`}>{children}</span>;
@@ -860,6 +863,12 @@ y += 8;
   <ProfitSimulator />
 </Card>
 <Card
+  title="Global Importer Finder"
+  subtitle="Find potential buyers in target markets"
+>
+  <ImporterFinder />
+</Card>
+<Card
   title="Freight Cost Estimator"
   subtitle="Estimate air vs sea shipping cost"
 >
@@ -876,6 +885,18 @@ y += 8;
   subtitle="Discover which countries import your product most"
 >
   <MarketAnalyzer />
+</Card>
+<Card
+  title="Tariff Lookup"
+  subtitle="Check duties and VAT before exporting"
+>
+  <TariffLookup />
+</Card>
+<Card
+  title="Find Buyers"
+  subtitle="Discover potential importers"
+>
+  <BuyerDiscovery />
 </Card>
 <Card
   title="AI Export Advisor"
