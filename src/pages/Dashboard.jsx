@@ -8,6 +8,7 @@ import FreightEstimator from "../components/FreightEstimator";
 import BuyerFinder from "../components/BuyerFinder";
 import MarketAnalyzer from "../components/MarketAnalyzer";
 import AIAdvisor from "../components/AIAdvisor";
+import ProfitSimulator from "../components/ProfitSimulator";
 
 function Badge({ tone = "neutral", children }) {
   return <span className={`badge badge--${tone}`}>{children}</span>;
@@ -851,6 +852,12 @@ y += 8;
   subtitle="Estimate duties, VAT and selling price before exporting"
 >
   <LandedCostCalculator hsCode={lockedHs?.code} country={country} />
+</Card>
+<Card
+  title="Export Profit Simulator"
+  subtitle="Calculate export profit and margin"
+>
+  <ProfitSimulator />
 </Card>
 <Card
   title="Freight Cost Estimator"
