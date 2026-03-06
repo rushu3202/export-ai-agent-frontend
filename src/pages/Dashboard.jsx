@@ -3,6 +3,11 @@ import jsPDF from "jspdf";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../supabaseClient";
 import "../App.css";
+import LandedCostCalculator from "../components/LandedCostCalculator.jsx";
+import FreightEstimator from "../components/FreightEstimator";
+import BuyerFinder from "../components/BuyerFinder";
+import MarketAnalyzer from "../components/MarketAnalyzer";
+import AIAdvisor from "../components/AIAdvisor";
 
 function Badge({ tone = "neutral", children }) {
   return <span className={`badge badge--${tone}`}>{children}</span>;
@@ -115,6 +120,7 @@ function getDocReason(docReasons, docName) {
 }
 
 export default function Dashboard({ user }) {
+
   // Inputs
   const [product, setProduct] = useState("T-shirts");
   const [country, setCountry] = useState("UK");
@@ -147,6 +153,38 @@ export default function Dashboard({ user }) {
   // ✅ SAFE objects (prevents null crashes)
   const reportResult = selectedReport?.result || {};
   const liveResult = result || {};
+  const complianceScore = useMemo(() => {
+  if (!result) return null;
+
+  const hsScore = lockedHs ? 90 : selectedHs ? 75 : 40;
+
+  const docsScore = (liveResult.documents?.length || 0) >= 3 ? 85 : 60;
+
+  const riskScore =
+    liveResult.risk_level === "LOW"
+      ? 90
+      : liveResult.risk_level === "MEDIUM"
+      ? 70
+      : 50;
+
+  const experienceScore =
+    experience === "expert"
+      ? 90
+      : experience === "intermediate"
+      ? 75
+      : 60;
+
+  const total =
+    (hsScore + docsScore + riskScore + experienceScore) / 4;
+
+  return {
+    total: Math.round(total),
+    hsScore,
+    docsScore,
+    riskScore,
+    experienceScore,
+  };
+}, [result, lockedHs, selectedHs, experience]);
 
   const canSubmit = product.trim().length > 0 && country.trim().length > 0;
 
@@ -259,43 +297,43 @@ export default function Dashboard({ user }) {
   };
 
   async function loadPaidStatus() {
-  const { data: sessionData } = await supabase.auth.getSession();
-  const u = sessionData?.session?.user;
-  if (!u?.email) return;
+    const { data: sessionData } = await supabase.auth.getSession();
+    const u = sessionData?.session?.user;
+    if (!u?.email) return;
 
-  try {
-    // Get paid status by email
-    const { data: existing, error: selErr } = await supabase
-      .from("user_profiles")
-      .select("is_paid")
-      .eq("email", u.email)
-      .single();
+    try {
+      // Get paid status by email
+      const { data: existing, error: selErr } = await supabase
+        .from("user_profiles")
+        .select("is_paid")
+        .eq("email", u.email)
+        .single();
 
-    // If row not found → create it
-    if (selErr && selErr.code === "PGRST116") {
-      const { error: insErr } = await supabase.from("user_profiles").insert({
-        id: u.id,
-        email: u.email,
-        is_paid: false,
-      });
+      // If row not found → create it
+      if (selErr && selErr.code === "PGRST116") {
+        const { error: insErr } = await supabase.from("user_profiles").insert({
+          id: u.id,
+          email: u.email,
+          is_paid: false,
+        });
 
-      if (insErr) console.log("profile insert error", insErr);
+        if (insErr) console.log("profile insert error", insErr);
+        setIsPaid(false);
+        return;
+      }
+
+      if (selErr) {
+        console.log("profile select error", selErr);
+        setIsPaid(false);
+        return;
+      }
+
+      setIsPaid(!!existing?.is_paid);
+    } catch (e) {
+      console.log("loadPaidStatus error", e);
       setIsPaid(false);
-      return;
     }
-
-    if (selErr) {
-      console.log("profile select error", selErr);
-      setIsPaid(false);
-      return;
-    }
-
-    setIsPaid(!!existing?.is_paid);
-  } catch (e) {
-    console.log("loadPaidStatus error", e);
-    setIsPaid(false);
   }
-}
 
   useEffect(() => {
     fetchReports(true);
@@ -540,6 +578,17 @@ export default function Dashboard({ user }) {
       doc.text(`• ${w}`, 16, y);
       y += 5;
     });
+ 
+    doc.setFontSize(13);
+doc.text("Estimated Landed Cost", 14, y);
+y += 6;
+
+doc.setFontSize(11);
+doc.text("Product Cost + Freight + Insurance calculated via Export AI Agent.", 14, y);
+y += 6;
+
+doc.text("Use the Landed Cost Calculator in the dashboard for pricing strategy.", 14, y);
+y += 10;
 
     y += 4;
     doc.setFontSize(13);
@@ -585,6 +634,14 @@ export default function Dashboard({ user }) {
     doc.text(`Experience: ${experience}`, 14, y); y += 6;
     doc.text(`Risk Level: ${liveResult.risk_level || "-"}`, 14, y); y += 6;
     doc.text(`Incoterm: ${liveResult.recommended_incoterm || "-"}`, 14, y); y += 8;
+
+    doc.setFontSize(11);
+doc.text(
+  "Risk Explanation: " + (liveResult.risk_reason || "General compliance risk evaluation."),
+  14,
+  y
+);
+y += 8;
 
     doc.setFontSize(13);
     doc.text("HS Code", 14, y); y += 6;
@@ -788,6 +845,73 @@ export default function Dashboard({ user }) {
         </aside>
 
         <main className="main">
+          {/* 🔥 Landed Cost Calculator */}
+<Card
+  title="Landed Cost Calculator"
+  subtitle="Estimate duties, VAT and selling price before exporting"
+>
+  <LandedCostCalculator hsCode={lockedHs?.code} country={country} />
+</Card>
+<Card
+  title="Freight Cost Estimator"
+  subtitle="Estimate air vs sea shipping cost"
+>
+  <FreightEstimator />
+</Card>
+<Card
+  title="AI Buyer Finder"
+  subtitle="Discover potential importers and distributors"
+>
+  <BuyerFinder />
+</Card>
+<Card
+  title="Export Market Demand"
+  subtitle="Discover which countries import your product most"
+>
+  <MarketAnalyzer />
+</Card>
+<Card
+  title="AI Export Advisor"
+  subtitle="Ask AI about exporting rules, duties, or documents"
+>
+  <AIAdvisor />
+</Card>
+{complianceScore && (
+  <Card
+    title="Compliance Confidence Score"
+    subtitle="AI estimate of export readiness"
+  >
+    <div style={{ fontSize: "28px", fontWeight: "bold", marginBottom: 10 }}>
+      {complianceScore.total}%
+    </div>
+
+    <div className="muted" style={{ marginBottom: 10 }}>
+      Higher score means lower compliance risk.
+    </div>
+
+    <ul className="list">
+      <li className="list__item">
+        <span className="dot" />
+        <span>HS Code Clarity: {complianceScore.hsScore}%</span>
+      </li>
+
+      <li className="list__item">
+        <span className="dot" />
+        <span>Documents Completeness: {complianceScore.docsScore}%</span>
+      </li>
+
+      <li className="list__item">
+        <span className="dot" />
+        <span>Country Risk: {complianceScore.riskScore}%</span>
+      </li>
+
+      <li className="list__item">
+        <span className="dot" />
+        <span>Exporter Experience: {complianceScore.experienceScore}%</span>
+      </li>
+    </ul>
+  </Card>
+)}
           <Card
             title="Report Details"
             subtitle="Saved report view (clean + downloadable)"
@@ -1103,8 +1227,8 @@ export default function Dashboard({ user }) {
                   {lockedHs
                     ? `Final HS code locked: ${lockedHs.code}`
                     : selectedHs
-                    ? `Selected: ${selectedHs.code} (click Confirm to lock)`
-                    : "Tip: click a suggestion to select it"}
+                      ? `Selected: ${selectedHs.code} (click Confirm to lock)`
+                      : "Tip: click a suggestion to select it"}
                 </div>
 
                 {savedReportId ? (
@@ -1166,88 +1290,88 @@ export default function Dashboard({ user }) {
               <List items={liveResult?.nextSteps || []} empty="Run a check to see next steps." />
             </Card>
 
-           <Card
-  title={
-    liveResult?.country_pack?.title
-      ? liveResult.country_pack.title
-      : "Country Rules Pack"
-  }
-  subtitle="Country-specific compliance checklist & official links"
-  right={
-    result ? (
-      <Badge tone="neutral">{(country || "Country").toUpperCase()}</Badge>
-    ) : (
-      <Badge tone="neutral">Waiting</Badge>
-    )
-  }
->
-  {!result ? (
-    <div className="muted">Run a check to load country rules.</div>
-  ) : (
-    <>
-      {liveResult?.country_pack?.title ? (
-        <div className="muted" style={{ marginBottom: 10 }}>
-          Pack: <b>{liveResult.country_pack.title}</b>
-        </div>
-      ) : null}
+            <Card
+              title={
+                liveResult?.country_pack?.title
+                  ? liveResult.country_pack.title
+                  : "Country Rules Pack"
+              }
+              subtitle="Country-specific compliance checklist & official links"
+              right={
+                result ? (
+                  <Badge tone="neutral">{(country || "Country").toUpperCase()}</Badge>
+                ) : (
+                  <Badge tone="neutral">Waiting</Badge>
+                )
+              }
+            >
+              {!result ? (
+                <div className="muted">Run a check to load country rules.</div>
+              ) : (
+                <>
+                  {liveResult?.country_pack?.title ? (
+                    <div className="muted" style={{ marginBottom: 10 }}>
+                      Pack: <b>{liveResult.country_pack.title}</b>
+                    </div>
+                  ) : null}
 
-      <div style={{ marginBottom: 10 }}>
-        <div className="muted" style={{ marginBottom: 6 }}>
-          Compliance checklist
-        </div>
-        <List
-          items={liveResult.compliance_checklist || []}
-          empty="No checklist available yet."
-        />
+                  <div style={{ marginBottom: 10 }}>
+                    <div className="muted" style={{ marginBottom: 6 }}>
+                      Compliance checklist
+                    </div>
+                    <List
+                      items={liveResult.compliance_checklist || []}
+                      empty="No checklist available yet."
+                    />
+                  </div>
+
+                  <div style={{ marginBottom: 10 }}>
+                    <div className="muted" style={{ marginBottom: 6 }}>
+                      Key rules
+                    </div>
+
+                    {(liveResult.country_rules || []).length ? (
+                      <ul className="list">
+                        {liveResult.country_rules.map((r, i) => (
+                          <li key={i} className="list__item">
+                            <span className="dot" />
+                            <span>
+                              <b>{r.title}:</b> {r.detail}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <div className="muted">No rules available yet.</div>
+                    )}
+                  </div>
+
+                  <div>
+                    <div className="muted" style={{ marginBottom: 6 }}>
+                      Official links
+                    </div>
+
+                    {(liveResult.official_links || []).length ? (
+                      <ul className="list">
+                        {liveResult.official_links.map((l, i) => (
+                          <li key={i} className="list__item">
+                            <span className="dot" />
+                            <a href={l.url} target="_blank" rel="noreferrer">
+                              {l.label}
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <div className="muted">No links available yet.</div>
+                    )}
+                  </div>
+                </>
+              )}
+            </Card>
+          </div>
+        </main>
       </div>
-
-      <div style={{ marginBottom: 10 }}>
-        <div className="muted" style={{ marginBottom: 6 }}>
-          Key rules
-        </div>
-
-        {(liveResult.country_rules || []).length ? (
-          <ul className="list">
-            {liveResult.country_rules.map((r, i) => (
-              <li key={i} className="list__item">
-                <span className="dot" />
-                <span>
-                  <b>{r.title}:</b> {r.detail}
-                </span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <div className="muted">No rules available yet.</div>
-        )}
-      </div>
-
-      <div>
-        <div className="muted" style={{ marginBottom: 6 }}>
-          Official links
-        </div>
-
-        {(liveResult.official_links || []).length ? (
-          <ul className="list">
-            {liveResult.official_links.map((l, i) => (
-              <li key={i} className="list__item">
-                <span className="dot" />
-                <a href={l.url} target="_blank" rel="noreferrer">
-                  {l.label}
-                </a>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <div className="muted">No links available yet.</div>
-        )}
-      </div>
-    </>
-  )}
-              </Card>
-        </div>
-      </main>
     </div>
-  </div>
-);
+  );
 }
