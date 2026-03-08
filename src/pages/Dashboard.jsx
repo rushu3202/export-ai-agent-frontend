@@ -917,7 +917,6 @@ subtitle="Find the best countries to export your product"
 <MarketOpportunity />
 </Card>
 
-
 {/* ================= MARKET INTELLIGENCE ================= */}
 
 <h2 style={{ marginTop: "35px", marginBottom: "10px" }}>
@@ -1192,7 +1191,7 @@ Share Report
                   </details>
 ) : null}
 </Card>
-</main>
+
 
           <Card
             title="Start an export readiness check"
@@ -1479,9 +1478,15 @@ Share Report
                   </div>
                 </>
               )}
-            </Card>
-          </div>
-        </div>
-      </div>
-  )
+           </Card>
+
+</div>
+
+</main>
+
+</div>
+
+</div>
+
+);
 }
