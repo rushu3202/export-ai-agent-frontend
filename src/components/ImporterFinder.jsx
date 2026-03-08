@@ -35,7 +35,7 @@ export default function ImporterFinder() {
   return (
     <div>
 
-      <h3>Global Importer Finder</h3>
+      Global Importer Finder
       <p>Discover potential buyers in target markets</p>
 
       <input

@@ -12,6 +12,9 @@ import ProfitSimulator from "../components/ProfitSimulator";
 import ImporterFinder from "../components/ImporterFinder";
 import TariffLookup from "../components/TariffLookup";
 import BuyerDiscovery from "../components/BuyerDiscovery";
+import MarketOpportunity from "../components/MarketOpportunity";
+import PublicReport from "./pages/PublicReport";
+<Route path="/report/:id" element={<PublicReport />} />
 
 function Badge({ tone = "neutral", children }) {
   return <span className={`badge badge--${tone}`}>{children}</span>;
@@ -767,12 +770,46 @@ y += 8;
             })}
           </div>
 
-          <div className="sidebar__help">
-            <div className="sidebar__helpTitle">Tip</div>
-            <div className="sidebar__helpText">
-              Start simple: product + destination + experience. We’ll generate a clear checklist and next actions.
-            </div>
-          </div>
+          <div className="sidebar__title">Platform</div>
+
+<div className="steps">
+
+<div className="step">
+<div className="step__icon">📦</div>
+<div className="step__label">Export Readiness</div>
+</div>
+
+<div className="step">
+<div className="step__icon">🌍</div>
+<div className="step__label">Market Intelligence</div>
+</div>
+
+<div className="step">
+<div className="step__icon">🤝</div>
+<div className="step__label">Buyer Discovery</div>
+</div>
+
+<div className="step">
+<div className="step__icon">💰</div>
+<div className="step__label">Pricing Tools</div>
+</div>
+
+<div className="step">
+<div className="step__icon">📄</div>
+<div className="step__label">Compliance & Documents</div>
+</div>
+
+<div className="step">
+<div className="step__icon">🤖</div>
+<div className="step__label">AI Export Advisor</div>
+</div>
+
+<div className="step">
+<div className="step__icon">📊</div>
+<div className="step__label">Saved Reports</div>
+</div>
+
+</div>
 
           <div style={{ marginTop: 16 }}>
             <div className="sidebar__title">Saved Reports</div>
@@ -848,120 +885,156 @@ y += 8;
           </div>
         </aside>
 
-        <main className="main">
-          {/* 🔥 Landed Cost Calculator */}
-<Card
-  title="Landed Cost Calculator"
-  subtitle="Estimate duties, VAT and selling price before exporting"
->
-  <LandedCostCalculator hsCode={lockedHs?.code} country={country} />
+       <main className="main">
+
+{/* ================= EXPORT TOOLS ================= */}
+
+<h2 className="sectionTitle">Pricing Tools</h2>
+
+<div className="toolGrid">
+
+<Card title="Landed Cost Calculator">
+<LandedCostCalculator hsCode={lockedHs?.code} country={country}/>
 </Card>
-<Card
-  title="Export Profit Simulator"
-  subtitle="Calculate export profit and margin"
->
-  <ProfitSimulator />
+
+<Card title="Export Profit Simulator">
+<ProfitSimulator/>
 </Card>
-<Card
-  title="Global Importer Finder"
-  subtitle="Find potential buyers in target markets"
->
-  <ImporterFinder />
+
+<Card title="Freight Cost Estimator">
+<FreightEstimator/>
 </Card>
-<Card
-  title="Freight Cost Estimator"
-  subtitle="Estimate air vs sea shipping cost"
->
-  <FreightEstimator />
+
+<Card title="Tariff Lookup">
+<TariffLookup hsCode={lockedHs?.code} country={country}/>
 </Card>
+
+</div>
 <Card
-  title="AI Buyer Finder"
-  subtitle="Discover potential importers and distributors"
+title="Global Market Opportunity"
+subtitle="Find the best countries to export your product"
 >
-  <BuyerFinder />
+<MarketOpportunity />
 </Card>
+</div>
+
+
+{/* ================= MARKET INTELLIGENCE ================= */}
+
+<h2 style={{ marginTop: "35px", marginBottom: "10px" }}>
+Market Intelligence
+</h2>
+
+<div className="toolGrid">
+
 <Card
-  title="Export Market Demand"
-  subtitle="Discover which countries import your product most"
+title="Global Importer Finder"
+subtitle="Find potential buyers in target markets"
 >
-  <MarketAnalyzer />
+<ImporterFinder />
 </Card>
+
 <Card
-  title="Tariff Lookup"
-  subtitle="Check duties and VAT before exporting"
+title="AI Buyer Finder"
+subtitle="Discover potential importers and distributors"
 >
-  <TariffLookup />
+<BuyerFinder />
 </Card>
+
 <Card
-  title="Find Buyers"
-  subtitle="Discover potential importers"
+title="Export Market Demand"
+subtitle="Discover which countries import your product most"
 >
-  <BuyerDiscovery />
+<MarketAnalyzer />
 </Card>
+
+</div>
+
+
+{/* ================= AI TOOLS ================= */}
+
+<h2 style={{ marginTop: "35px", marginBottom: "10px" }}>
+AI Tools
+</h2>
+
+<div className="toolGrid">
+
 <Card
-  title="AI Export Advisor"
-  subtitle="Ask AI about exporting rules, duties, or documents"
+title="AI Export Advisor"
+subtitle="Ask AI about exporting rules, duties, or documents"
 >
-  <AIAdvisor />
+<AIAdvisor />
 </Card>
+
 {complianceScore && (
-  <Card
-    title="Compliance Confidence Score"
-    subtitle="AI estimate of export readiness"
-  >
-    <div style={{ fontSize: "28px", fontWeight: "bold", marginBottom: 10 }}>
-      {complianceScore.total}%
-    </div>
+<Card
+title="Compliance Confidence Score"
+subtitle="AI estimate of export readiness"
+>
 
-    <div className="muted" style={{ marginBottom: 10 }}>
-      Higher score means lower compliance risk.
-    </div>
+<div style={{ fontSize: "28px", fontWeight: "bold", marginBottom: 10 }}>
+{complianceScore.total}%
+</div>
 
-    <ul className="list">
-      <li className="list__item">
-        <span className="dot" />
-        <span>HS Code Clarity: {complianceScore.hsScore}%</span>
-      </li>
+<div className="muted" style={{ marginBottom: 10 }}>
+Higher score means lower compliance risk.
+</div>
 
-      <li className="list__item">
-        <span className="dot" />
-        <span>Documents Completeness: {complianceScore.docsScore}%</span>
-      </li>
+<ul className="list">
 
-      <li className="list__item">
-        <span className="dot" />
-        <span>Country Risk: {complianceScore.riskScore}%</span>
-      </li>
+<li className="list__item">
+<span className="dot" />
+HS Code Clarity: {complianceScore.hsScore}%
+</li>
 
-      <li className="list__item">
-        <span className="dot" />
-        <span>Exporter Experience: {complianceScore.experienceScore}%</span>
-      </li>
-    </ul>
-  </Card>
+<li className="list__item">
+<span className="dot" />
+Documents Completeness: {complianceScore.docsScore}%
+</li>
+
+<li className="list__item">
+<span className="dot" />
+Country Risk: {complianceScore.riskScore}%
+</li>
+
+<li className="list__item">
+<span className="dot" />
+Exporter Experience: {complianceScore.experienceScore}%
+</li>
+
+</ul>
+
+</Card>
 )}
-          <Card
-            title="Report Details"
-            subtitle="Saved report view (clean + downloadable)"
-            right={selectedReportLoading ? <Badge tone="neutral">Loading…</Badge> : <Badge tone="neutral">v1</Badge>}
-          >
-            {!selectedReport ? (
-              <div className="muted">Select a report from the left to view it here.</div>
-            ) : (
-              <div>
+
+</div>
+
+
+{/* ================= REPORT DETAILS ================= */}
+
+<Card
+title="Report Details"
+subtitle="Saved report view (clean + downloadable)"
+right={selectedReportLoading ? <Badge tone="neutral">Loading…</Badge> : <Badge tone="neutral">v1</Badge>}
+>
+  {!selectedReport ? (
+  <div className="muted">
+    Select a report from the left panel to view details.
+  </div>
+) : (
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-                  <Badge tone="neutral">Product: {selectedReport.product}</Badge>
-                  <Badge tone="neutral">Dest: {selectedReport.country}</Badge>
-                  <Badge tone="neutral">HS: {selectedReport.hs_code}</Badge>
-                  <Badge tone="neutral">Incoterm: {selectedReport.incoterm}</Badge>
-                  <Badge tone={riskTone(selectedReport.risk_level)}>Risk: {selectedReport.risk_level}</Badge>
+                  <Badge tone="neutral">Product: {selectedReport?.product}</Badge>
+<Badge tone="neutral">Dest: {selectedReport?.country}</Badge>
+<Badge tone="neutral">HS: {selectedReport?.hs_code}</Badge>
+<Badge tone="neutral">Incoterm: {selectedReport?.incoterm}</Badge>
+<Badge tone={riskTone(selectedReport?.risk_level)}>Risk: {selectedReport?.risk_level}</Badge>
 
                   {/* ✅ NEW (saved): category */}
                   {reportResult?.product_category ? (
                     <Badge tone="neutral">Category: {reportResult.product_category}</Badge>
                   ) : null}
                 </div>
-
+)}
                 {/* ✅ NEW (saved): risk reason */}
                 {reportResult?.risk_reason ? (
                   <div className="muted" style={{ marginTop: 10 }}>
@@ -970,7 +1043,7 @@ y += 8;
                 ) : null}
 
                 <div className="muted" style={{ marginTop: 10 }}>
-                  Created: {formatDate(selectedReport.created_at)}
+                  Created: {formatDate(selectedReport?.created_at)}
                 </div>
 
                 <div style={{ display: "flex", gap: 10, marginTop: 12, flexWrap: "wrap" }}>
@@ -978,12 +1051,12 @@ y += 8;
                     className="btn"
                     onClick={() => {
                       if (!requirePaid()) return;
-                      downloadPDFfromReport(selectedReport);
+                      downloadPDFfromReport(selectedReport)
                     }}
                   >
                     Download PDF (Saved)
                   </button>
-                  <button className="btn secondary" onClick={() => deleteReport(selectedReport.id)}>
+                  <button className="btn secondary" onClick={() => deleteReport(selectedReport?.id)}>
                     Delete Report
                   </button>
                 </div>
@@ -1088,6 +1161,18 @@ y += 8;
                     </button>
 
                     <button
+className="btn secondary"
+onClick={()=>{
+navigator.clipboard.writeText(
+`${window.location.origin}/report/${selectedReport.id}`
+);
+alert("Report link copied!");
+}}
+>
+Share Report
+</button>
+
+                    <button
                       className="btn secondary"
                       onClick={() => {
                         if (!requirePaid()) return;
@@ -1106,10 +1191,9 @@ y += 8;
                     </summary>
                     <pre style={{ whiteSpace: "pre-wrap" }}>{JSON.stringify(selectedReport, null, 2)}</pre>
                   </details>
-                ) : null}
-              </div>
-            )}
-          </Card>
+) : null}
+</Card>
+</main>
 
           <Card
             title="Start an export readiness check"
@@ -1398,8 +1482,7 @@ y += 8;
               )}
             </Card>
           </div>
-        </main>
+        </div>
       </div>
-    </div>
-  );
+  )
 }

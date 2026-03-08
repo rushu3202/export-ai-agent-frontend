@@ -33,7 +33,7 @@ export default function ProfitSimulator() {
   return (
     <div>
 
-      <h3>Export Profit Simulator</h3>
+      Export Profit Simulator
       <p>Calculate export profit and margin before shipping</p>
 
       <input

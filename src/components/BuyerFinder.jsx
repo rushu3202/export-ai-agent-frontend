@@ -33,7 +33,7 @@ export default function BuyerFinder() {
   return (
     <div>
 
-      <h3>AI Buyer Finder</h3>
+      AI Buyer Finder
       <p>Discover potential importers and distributors</p>
 
       <input

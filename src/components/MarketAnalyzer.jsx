@@ -40,7 +40,7 @@ export default function MarketAnalyzer() {
   return (
     <div>
 
-      <h3>Export Market Demand Analyzer</h3>
+      Export Market Demand Analyzer
       <p>Identify countries with strong import demand</p>
 
       <input

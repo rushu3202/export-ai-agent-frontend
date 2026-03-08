@@ -28,7 +28,7 @@ export default function FreightEstimator() {
 
   return (
     <div>
-      <h3>Freight Cost Estimator</h3>
+       Freight Cost Estimator
       <p>Estimate shipping cost before exporting</p>
 
       <input

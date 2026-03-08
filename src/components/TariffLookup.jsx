@@ -65,7 +65,7 @@ export default function TariffLookup() {
   return (
     <div>
 
-      <h3>Tariff & Duty Lookup</h3>
+      Tariff & Duty Lookup
       <p>Check duties before exporting</p>
 
       <input

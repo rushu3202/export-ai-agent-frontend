@@ -44,7 +44,7 @@ export default function AIAdvisor() {
   return (
     <div>
 
-      <h3>AI Export Advisor</h3>
+      AI Export Advisor
       <p>Ask anything about exporting</p>
 
       <input
