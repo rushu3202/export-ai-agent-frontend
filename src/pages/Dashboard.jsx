@@ -13,7 +13,7 @@ import ImporterFinder from "../components/ImporterFinder";
 import TariffLookup from "../components/TariffLookup";
 import BuyerDiscovery from "../components/BuyerDiscovery";
 import MarketOpportunity from "../components/MarketOpportunity";
-import PublicReport from "./pages/PublicReport";
+import PublicReport from "./PublicReport";
 <Route path="/report/:id" element={<PublicReport />} />
 
 function Badge({ tone = "neutral", children }) {
@@ -916,7 +916,6 @@ subtitle="Find the best countries to export your product"
 >
 <MarketOpportunity />
 </Card>
-</div>
 
 
 {/* ================= MARKET INTELLIGENCE ================= */}
