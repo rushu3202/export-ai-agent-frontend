@@ -14,6 +14,9 @@ import TariffLookup from "../components/TariffLookup";
 import BuyerDiscovery from "../components/BuyerDiscovery";
 import MarketOpportunity from "../components/MarketOpportunity";
 import PublicReport from "./PublicReport";
+import PricingTools from "../components/dashboard/PricingTools";
+import MarketIntelligence from "../components/dashboard/MarketIntelligence";
+import AITools from "../components/dashboard/AITools";
 
 function Badge({ tone = "neutral", children }) {
   return <span className={`badge badge--${tone}`}>{children}</span>;
@@ -886,127 +889,20 @@ y += 8;
 
        <main className="main">
 
-{/* ================= EXPORT TOOLS ================= */}
+<PricingTools
+  lockedHs={lockedHs}
+  country={country}
+  Card={Card}
+/>
 
-<h2 className="sectionTitle">Pricing Tools</h2>
+<MarketIntelligence
+  Card={Card}
+/>
 
-<div className="toolGrid">
-
-<Card title="Landed Cost Calculator">
-<LandedCostCalculator hsCode={lockedHs?.code} country={country}/>
-</Card>
-
-<Card title="Export Profit Simulator">
-<ProfitSimulator/>
-</Card>
-
-<Card title="Freight Cost Estimator">
-<FreightEstimator/>
-</Card>
-
-<Card title="Tariff Lookup">
-<TariffLookup hsCode={lockedHs?.code} country={country}/>
-</Card>
-
-</div>
-<Card
-title="Global Market Opportunity"
-subtitle="Find the best countries to export your product"
->
-<MarketOpportunity />
-</Card>
-
-{/* ================= MARKET INTELLIGENCE ================= */}
-
-<h2 style={{ marginTop: "35px", marginBottom: "10px" }}>
-Market Intelligence
-</h2>
-
-<div className="toolGrid">
-
-<Card
-title="Global Importer Finder"
-subtitle="Find potential buyers in target markets"
->
-<ImporterFinder />
-</Card>
-
-<Card
-title="AI Buyer Finder"
-subtitle="Discover potential importers and distributors"
->
-<BuyerFinder />
-</Card>
-
-<Card
-title="Export Market Demand"
-subtitle="Discover which countries import your product most"
->
-<MarketAnalyzer />
-</Card>
-
-</div>
-
-
-{/* ================= AI TOOLS ================= */}
-
-<h2 style={{ marginTop: "35px", marginBottom: "10px" }}>
-AI Tools
-</h2>
-
-<div className="toolGrid">
-
-<Card
-title="AI Export Advisor"
-subtitle="Ask AI about exporting rules, duties, or documents"
->
-<AIAdvisor />
-</Card>
-
-{complianceScore && (
-<Card
-title="Compliance Confidence Score"
-subtitle="AI estimate of export readiness"
->
-
-<div style={{ fontSize: "28px", fontWeight: "bold", marginBottom: 10 }}>
-{complianceScore.total}%
-</div>
-
-<div className="muted" style={{ marginBottom: 10 }}>
-Higher score means lower compliance risk.
-</div>
-
-<ul className="list">
-
-<li className="list__item">
-<span className="dot" />
-HS Code Clarity: {complianceScore.hsScore}%
-</li>
-
-<li className="list__item">
-<span className="dot" />
-Documents Completeness: {complianceScore.docsScore}%
-</li>
-
-<li className="list__item">
-<span className="dot" />
-Country Risk: {complianceScore.riskScore}%
-</li>
-
-<li className="list__item">
-<span className="dot" />
-Exporter Experience: {complianceScore.experienceScore}%
-</li>
-
-</ul>
-
-</Card>
-)}
-
-</div>
-
-
+<AITools
+  Card={Card}
+  complianceScore={complianceScore}
+/>
 {/* ================= REPORT DETAILS ================= */}
 
 <Card
