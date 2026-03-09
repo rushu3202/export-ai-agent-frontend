@@ -4,7 +4,9 @@ import { supabase } from "./supabaseClient";
 
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
+import PublicReport from "./pages/PublicReport";
 
+<Route path="/report/:id" element={<PublicReport />} />
 function ProtectedRoute({ user, children }) {
   if (!user) return <Navigate to="/auth" replace />;
   return children;

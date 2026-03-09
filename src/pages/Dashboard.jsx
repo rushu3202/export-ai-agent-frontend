@@ -14,7 +14,6 @@ import TariffLookup from "../components/TariffLookup";
 import BuyerDiscovery from "../components/BuyerDiscovery";
 import MarketOpportunity from "../components/MarketOpportunity";
 import PublicReport from "./PublicReport";
-<Route path="/report/:id" element={<PublicReport />} />
 
 function Badge({ tone = "neutral", children }) {
   return <span className={`badge badge--${tone}`}>{children}</span>;
@@ -1015,11 +1014,12 @@ title="Report Details"
 subtitle="Saved report view (clean + downloadable)"
 right={selectedReportLoading ? <Badge tone="neutral">Loading…</Badge> : <Badge tone="neutral">v1</Badge>}
 >
-  {!selectedReport ? (
+  {!selectedReport && (
   <div className="muted">
     Select a report from the left panel to view details.
   </div>
-) : (
+)}
+
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
                   <Badge tone="neutral">Product: {selectedReport?.product}</Badge>
 <Badge tone="neutral">Dest: {selectedReport?.country}</Badge>
@@ -1032,7 +1032,7 @@ right={selectedReportLoading ? <Badge tone="neutral">Loading…</Badge> : <Badge
                     <Badge tone="neutral">Category: {reportResult.product_category}</Badge>
                   ) : null}
                 </div>
-)}
+
                 {/* ✅ NEW (saved): risk reason */}
                 {reportResult?.risk_reason ? (
                   <div className="muted" style={{ marginTop: 10 }}>
@@ -1162,7 +1162,7 @@ right={selectedReportLoading ? <Badge tone="neutral">Loading…</Badge> : <Badge
 className="btn secondary"
 onClick={()=>{
 navigator.clipboard.writeText(
-`${window.location.origin}/report/${selectedReport.id}`
+`${window.location.origin}/report/${selectedReport?.id}`
 );
 alert("Report link copied!");
 }}
