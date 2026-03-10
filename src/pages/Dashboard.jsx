@@ -15,7 +15,7 @@ import BuyerDiscovery from "../components/BuyerDiscovery";
 import MarketOpportunity from "../components/MarketOpportunity";
 import PublicReport from "./PublicReport";
 import PricingTools from "../components/dashboard/PricingTools";
-import MarketIntelligence from "../components/dashboard/MarketIntelligence";
+import MarketIntelligence from "../components/dashboard/MarketIntelligence.jsx"
 import AITools from "../components/dashboard/AITools";
 
 function Badge({ tone = "neutral", children }) {
