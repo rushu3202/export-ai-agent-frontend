@@ -17,6 +17,8 @@ import PublicReport from "./PublicReport";
 import PricingTools from "../components/dashboard/PricingTools";
 import MarketIntelligence from "../components/dashboard/MarketIntelligence.jsx"
 import AITools from "../components/dashboard/AITools";
+import ExportReadiness from "../components/dashboard/ExportReadiness.jsx";
+import ReportDetails from "../components/dashboard/ReportDetails.jsx";
 
 function Badge({ tone = "neutral", children }) {
   return <span className={`badge badge--${tone}`}>{children}</span>;
@@ -154,6 +156,7 @@ export default function Dashboard({ user }) {
   const [reportsError, setReportsError] = useState("");
   const [selectedReport, setSelectedReport] = useState(null);
   const [selectedReportLoading, setSelectedReportLoading] = useState(false);
+  const [activeSection, setActiveSection] = useState("readiness");
 
   // Payment gate (MVP)
   const [isPaid, setIsPaid] = useState(false);
@@ -776,41 +779,30 @@ y += 8;
 
 <div className="steps">
 
-<div className="step">
-<div className="step__icon">📦</div>
-<div className="step__label">Export Readiness</div>
+<div className="step" onClick={() => setActiveSection("readiness")}>
+  <div className="step__icon">📦</div>
+  <div className="step__label">Export Readiness</div>
 </div>
 
-<div className="step">
-<div className="step__icon">🌍</div>
-<div className="step__label">Market Intelligence</div>
+<div className="step" onClick={() => setActiveSection("market")}>
+  <div className="step__icon">🌍</div>
+  <div className="step__label">Market Intelligence</div>
 </div>
 
-<div className="step">
-<div className="step__icon">🤝</div>
-<div className="step__label">Buyer Discovery</div>
+<div className="step" onClick={() => setActiveSection("pricing")}>
+  <div className="step__icon">💰</div>
+  <div className="step__label">Pricing Tools</div>
 </div>
 
-<div className="step">
-<div className="step__icon">💰</div>
-<div className="step__label">Pricing Tools</div>
+<div className="step" onClick={() => setActiveSection("ai")}>
+  <div className="step__icon">🤖</div>
+  <div className="step__label">AI Tools</div>
 </div>
 
-<div className="step">
-<div className="step__icon">📄</div>
-<div className="step__label">Compliance & Documents</div>
+<div className="step" onClick={() => setActiveSection("reports")}>
+  <div className="step__icon">📊</div>
+  <div className="step__label">Saved Reports</div>
 </div>
-
-<div className="step">
-<div className="step__icon">🤖</div>
-<div className="step__label">AI Export Advisor</div>
-</div>
-
-<div className="step">
-<div className="step__icon">📊</div>
-<div className="step__label">Saved Reports</div>
-</div>
-
 </div>
 
           <div style={{ marginTop: 16 }}>
@@ -889,496 +881,55 @@ y += 8;
 
        <main className="main">
 
-<PricingTools
-  lockedHs={lockedHs}
-  country={country}
-  Card={Card}
+{activeSection === "readiness" && (
+<>
+<ExportReadiness
+product={product}
+country={country}
+experience={experience}
+setProduct={setProduct}
+setCountry={setCountry}
+setExperience={setExperience}
+checkExport={checkExport}
+result={result}
+liveResult={liveResult}
+lockedHs={lockedHs}
+selectedHs={selectedHs}
+setSelectedHs={setSelectedHs}
+setLockedHs={setLockedHs}
 />
-
-<MarketIntelligence
-  Card={Card}
-/>
-
-<AITools
-  Card={Card}
-  complianceScore={complianceScore}
-/>
-{/* ================= REPORT DETAILS ================= */}
-
-<Card
-title="Report Details"
-subtitle="Saved report view (clean + downloadable)"
-right={selectedReportLoading ? <Badge tone="neutral">Loading…</Badge> : <Badge tone="neutral">v1</Badge>}
->
-  {!selectedReport && (
-  <div className="muted">
-    Select a report from the left panel to view details.
-  </div>
+</>
 )}
 
-                <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-                  <Badge tone="neutral">Product: {selectedReport?.product}</Badge>
-<Badge tone="neutral">Dest: {selectedReport?.country}</Badge>
-<Badge tone="neutral">HS: {selectedReport?.hs_code}</Badge>
-<Badge tone="neutral">Incoterm: {selectedReport?.incoterm}</Badge>
-<Badge tone={riskTone(selectedReport?.risk_level)}>Risk: {selectedReport?.risk_level}</Badge>
+{activeSection === "pricing" && (
+<PricingTools
+lockedHs={lockedHs}
+country={country}
+Card={Card}
+/>
+)}
 
-                  {/* ✅ NEW (saved): category */}
-                  {reportResult?.product_category ? (
-                    <Badge tone="neutral">Category: {reportResult.product_category}</Badge>
-                  ) : null}
-                </div>
+{activeSection === "market" && (
+<MarketIntelligence Card={Card}/>
+)}
 
-                {/* ✅ NEW (saved): risk reason */}
-                {reportResult?.risk_reason ? (
-                  <div className="muted" style={{ marginTop: 10 }}>
-                    <b>Risk reason:</b> {reportResult.risk_reason}
-                  </div>
-                ) : null}
+{activeSection === "ai" && (
+<AITools
+Card={Card}
+complianceScore={complianceScore}
+/>
+)}
 
-                <div className="muted" style={{ marginTop: 10 }}>
-                  Created: {formatDate(selectedReport?.created_at)}
-                </div>
-
-                <div style={{ display: "flex", gap: 10, marginTop: 12, flexWrap: "wrap" }}>
-                  <button
-                    className="btn"
-                    onClick={() => {
-                      if (!requirePaid()) return;
-                      downloadPDFfromReport(selectedReport)
-                    }}
-                  >
-                    Download PDF (Saved)
-                  </button>
-                  <button className="btn secondary" onClick={() => deleteReport(selectedReport?.id)}>
-                    Delete Report
-                  </button>
-                </div>
-
-                <div style={{ marginTop: 14 }}>
-                  <Card title="Required Documents" subtitle="What you’ll typically need to prepare (with guidance)">
-                    {!(reportResult.documents || []).length ? (
-                      <div className="muted">No documents found in this saved report.</div>
-                    ) : (
-                      <div style={{ display: "grid", gap: 10 }}>
-                        {(reportResult.documents || []).map((d, i) => {
-                          const info = DOC_DETAILS[d];
-                          const reason = getDocReason(reportResult.document_reasons, d);
-
-                          return (
-                            <div key={i} className="hsRow" style={{ cursor: "default" }}>
-                              <div className="hsText">
-                                <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-                                  <b>{d}</b>
-                                  <Badge tone="neutral">Required</Badge>
-                                </div>
-
-                                <div className="muted" style={{ marginTop: 6 }}>
-                                  {info?.why || "Standard export document. (We’ll add full guidance in the next update.)"}
-                                </div>
-
-                                {/* ✅ NEW (saved): document reason */}
-                                {reason ? (
-                                  <div className="muted" style={{ marginTop: 6 }}>
-                                    <b>Why it matters:</b> {reason}
-                                  </div>
-                                ) : null}
-
-                                {info?.include?.length ? (
-                                  <div style={{ marginTop: 8 }}>
-                                    <div className="muted" style={{ marginBottom: 6 }}>
-                                      Include:
-                                    </div>
-                                    <ul className="list">
-                                      {info.include.map((x, idx) => (
-                                        <li key={idx} className="list__item">
-                                          <span className="dot" />
-                                          <span>{x}</span>
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  </div>
-                                ) : null}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </Card>
-
-                  {/* ✅ NEW (saved): HS explanations */}
-                  {(reportResult?.hs_explanations || []).length ? (
-                    <Card title="HS Explanations" subtitle="Why the engine suggested these codes">
-                      <ul className="list">
-                        {(reportResult.hs_explanations || []).map((x, i) => (
-                          <li key={i} className="list__item">
-                            <span className="dot" />
-                            <span>
-                              <b>{x.code}:</b> {x.why}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    </Card>
-                  ) : null}
-
-                  <Card title="Warnings">
-                    <List items={reportResult.warnings || []} empty="None" />
-                  </Card>
-
-                  <Card title="Next Steps">
-                    <List items={reportResult.nextSteps || []} empty="None" />
-                  </Card>
-                </div>
-
-                {(reportResult?.documents?.length || liveResult?.documents?.length) ? (
-                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 12 }}>
-                    <button
-                      className="btn secondary"
-                      onClick={() => {
-                        if (!requirePaid()) return;
-                        downloadInvoiceTemplate();
-                      }}
-                    >
-                      Download Invoice Template
-                    </button>
-
-                    <button
-                      className="btn secondary"
-                      onClick={() => {
-                        if (!requirePaid()) return;
-                        downloadPackingListTemplate();
-                      }}
-                    >
-                      Download Packing List Template
-                    </button>
-
-                    <button
-className="btn secondary"
-onClick={()=>{
-navigator.clipboard.writeText(
-`${window.location.origin}/report/${selectedReport?.id}`
-);
-alert("Report link copied!");
-}}
->
-Share Report
-</button>
-
-                    <button
-                      className="btn secondary"
-                      onClick={() => {
-                        if (!requirePaid()) return;
-                        downloadProductSpecTemplate();
-                      }}
-                    >
-                      Download Product Spec Template
-                    </button>
-                  </div>
-                ) : null}
-
-                {import.meta.env.DEV ? (
-                  <details style={{ marginTop: 14 }}>
-                    <summary className="muted" style={{ cursor: "pointer" }}>
-                      Full report JSON (debug)
-                    </summary>
-                    <pre style={{ whiteSpace: "pre-wrap" }}>{JSON.stringify(selectedReport, null, 2)}</pre>
-                  </details>
-) : null}
-</Card>
-
-
-          <Card
-            title="Start an export readiness check"
-            subtitle="Enter the basics — the engine will return required documents, warnings, and next steps."
-            right={loading ? <Badge tone="neutral">Analysing…</Badge> : <Badge tone="neutral">v1</Badge>}
-          >
-            <div className="grid">
-              <div className="field">
-                <label className="label">Product</label>
-                <input className="input" value={product} onChange={(e) => setProduct(e.target.value)} />
-              </div>
-
-              <div className="field">
-                <label className="label">Destination Country</label>
-                <input className="input" value={country} onChange={(e) => setCountry(e.target.value)} />
-              </div>
-
-              <div className="field">
-                <label className="label">Experience</label>
-                <select className="input" value={experience} onChange={(e) => setExperience(e.target.value)}>
-                  <option value="beginner">Beginner</option>
-                  <option value="intermediate">Intermediate</option>
-                  <option value="expert">Expert</option>
-                </select>
-              </div>
-
-              <div className="actions">
-                <button className="btn" onClick={checkExport} disabled={!canSubmit || loading}>
-                  {loading ? "Checking…" : "Check Export Readiness"}
-                </button>
-                {!API_URL ? <div className="muted">Fix: Set VITE_API_URL in Vercel.</div> : null}
-              </div>
-            </div>
-
-            {result ? (
-              <>
-                <div style={{ display: "flex", gap: "10px", marginTop: "14px", flexWrap: "wrap" }}>
-                  <Badge tone={riskTone(liveResult.risk_level)}>Risk: {liveResult.risk_level}</Badge>
-                  <Badge tone="neutral">Incoterm: {liveResult.recommended_incoterm}</Badge>
-                  <Badge tone="neutral">Stage: {liveResult.journey_stage}</Badge>
-
-                  {/* ✅ NEW (live): category */}
-                  {liveResult?.product_category ? (
-                    <Badge tone="neutral">Category: {liveResult.product_category}</Badge>
-                  ) : null}
-                </div>
-
-                {/* ✅ NEW (live): risk reason */}
-                {liveResult?.risk_reason ? (
-                  <div className="muted" style={{ marginTop: 10 }}>
-                    <b>Risk reason:</b> {liveResult.risk_reason}
-                  </div>
-                ) : null}
-              </>
-            ) : null}
-
-            {error ? <div className="alert alert--error">{error}</div> : null}
-          </Card>
-
-          <Card
-            title="HS Code Suggestions"
-            subtitle="Initial classification guidance (confirm before shipping)"
-            right={
-              liveResult?.hs_code_suggestions?.length ? (
-                <Badge tone="success">{liveResult.hs_code_suggestions.length} suggestion(s)</Badge>
-              ) : (
-                <Badge tone="neutral">None</Badge>
-              )
-            }
-          >
-            {liveResult?.hs_code_suggestions?.length ? (
-              <div className="hsList">
-                {liveResult.hs_code_suggestions.map((s, i) => {
-                  const isSelected = selectedHs?.code === s.code;
-                  const isLocked = lockedHs?.code === s.code;
-                  const why = getHsExplanation(liveResult.hs_explanations, s.code);
-
-                  return (
-                    <div
-                      key={i}
-                      className={`hsRow ${isSelected ? "hsRow--selected" : ""} ${isLocked ? "hsRow--locked" : ""}`}
-                      onClick={() => setSelectedHs(s)}
-                      style={{ cursor: "pointer" }}
-                    >
-                      <div className="hsCode">{s.code}</div>
-                      <div className="hsText">
-                        <div className="hsDesc">{s.description}</div>
-                        <div className="muted">Confidence: {s.confidence}</div>
-
-                        {/* ✅ NEW (live): hs explanation */}
-                        {why ? <div className="muted" style={{ marginTop: 6 }}><b>Why:</b> {why}</div> : null}
-
-                        {isLocked ? <div className="hsLockedText">✅ Locked as final HS code</div> : null}
-                      </div>
-                    </div>
-                  );
-                })}
-
-                <div className="muted" style={{ marginTop: "10px" }}>
-                  {liveResult.hs_note || "HS code suggestions are guidance only."}
-                </div>
-
-                <div style={{ display: "flex", gap: "10px", marginTop: "12px", flexWrap: "wrap" }}>
-                  <button className="btn secondary" disabled={!selectedHs || !!lockedHs} onClick={() => setLockedHs(selectedHs)}>
-                    Confirm HS Code
-                  </button>
-
-                  <button
-                    className="btn"
-                    disabled={!lockedHs}
-                    onClick={() => {
-                      if (!requirePaid()) return;
-                      downloadPDF();
-                    }}
-                  >
-                    Download Export Report (PDF)
-                  </button>
-
-                  <button
-                    className="btn secondary"
-                    disabled={!lockedHs || saving}
-                    onClick={() => {
-                      if (!requirePaid()) return;
-                      saveReport();
-                    }}
-                  >
-                    {saving ? "Saving..." : "Save Report"}
-                  </button>
-
-                  <button
-                    className="btn secondary"
-                    disabled={!lockedHs}
-                    onClick={() => {
-                      setLockedHs(null);
-                      setSavedReportId(null);
-                    }}
-                  >
-                    Unlock
-                  </button>
-                </div>
-
-                <div className="muted" style={{ marginTop: 8 }}>
-                  {lockedHs
-                    ? `Final HS code locked: ${lockedHs.code}`
-                    : selectedHs
-                      ? `Selected: ${selectedHs.code} (click Confirm to lock)`
-                      : "Tip: click a suggestion to select it"}
-                </div>
-
-                {savedReportId ? (
-                  <div className="muted" style={{ marginTop: "8px" }}>
-                    Saved Report ID: <b>{savedReportId}</b>
-                  </div>
-                ) : null}
-              </div>
-            ) : (
-              <div className="muted">{liveResult?.hs_note || "No HS suggestion yet. Add more detail like material/processing/use."}</div>
-            )}
-          </Card>
-
-          <div className="results">
-            <Card
-              title="Required Documents"
-              subtitle="What you’ll typically need to prepare"
-              right={result ? <Badge tone="success">Ready</Badge> : <Badge tone="neutral">Waiting</Badge>}
-            >
-              {/* ✅ NEW (live): document reasons */}
-              {(liveResult?.documents || []).length ? (
-                <div style={{ display: "grid", gap: 10 }}>
-                  {(liveResult.documents || []).map((d, i) => {
-                    const reason = getDocReason(liveResult.document_reasons, d);
-                    return (
-                      <div key={i} className="hsRow" style={{ cursor: "default" }}>
-                        <div className="hsText">
-                          <b>{d}</b>
-                          {reason ? (
-                            <div className="muted" style={{ marginTop: 6 }}>
-                              <b>Why it matters:</b> {reason}
-                            </div>
-                          ) : null}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="muted">Run a check to generate your checklist.</div>
-              )}
-            </Card>
-
-            <Card
-              title="Warnings"
-              subtitle="Things that commonly cause delays or mistakes"
-              right={
-                (liveResult.warnings || []).length ? (
-                  <Badge tone="warning">{(liveResult.warnings || []).length} alerts</Badge>
-                ) : (
-                  <Badge tone="neutral">None</Badge>
-                )
-              }
-            >
-              <List items={liveResult.warnings || []} empty="No warnings yet." />
-            </Card>
-
-            <Card title="Next Steps" subtitle="Your recommended actions from here" right={result ? <Badge tone="neutral">Action plan</Badge> : null}>
-              <List items={liveResult?.nextSteps || []} empty="Run a check to see next steps." />
-            </Card>
-
-            <Card
-              title={
-                liveResult?.country_pack?.title
-                  ? liveResult.country_pack.title
-                  : "Country Rules Pack"
-              }
-              subtitle="Country-specific compliance checklist & official links"
-              right={
-                result ? (
-                  <Badge tone="neutral">{(country || "Country").toUpperCase()}</Badge>
-                ) : (
-                  <Badge tone="neutral">Waiting</Badge>
-                )
-              }
-            >
-              {!result ? (
-                <div className="muted">Run a check to load country rules.</div>
-              ) : (
-                <>
-                  {liveResult?.country_pack?.title ? (
-                    <div className="muted" style={{ marginBottom: 10 }}>
-                      Pack: <b>{liveResult.country_pack.title}</b>
-                    </div>
-                  ) : null}
-
-                  <div style={{ marginBottom: 10 }}>
-                    <div className="muted" style={{ marginBottom: 6 }}>
-                      Compliance checklist
-                    </div>
-                    <List
-                      items={liveResult.compliance_checklist || []}
-                      empty="No checklist available yet."
-                    />
-                  </div>
-
-                  <div style={{ marginBottom: 10 }}>
-                    <div className="muted" style={{ marginBottom: 6 }}>
-                      Key rules
-                    </div>
-
-                    {(liveResult.country_rules || []).length ? (
-                      <ul className="list">
-                        {liveResult.country_rules.map((r, i) => (
-                          <li key={i} className="list__item">
-                            <span className="dot" />
-                            <span>
-                              <b>{r.title}:</b> {r.detail}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <div className="muted">No rules available yet.</div>
-                    )}
-                  </div>
-
-                  <div>
-                    <div className="muted" style={{ marginBottom: 6 }}>
-                      Official links
-                    </div>
-
-                    {(liveResult.official_links || []).length ? (
-                      <ul className="list">
-                        {liveResult.official_links.map((l, i) => (
-                          <li key={i} className="list__item">
-                            <span className="dot" />
-                            <a href={l.url} target="_blank" rel="noreferrer">
-                              {l.label}
-                            </a>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <div className="muted">No links available yet.</div>
-                    )}
-                  </div>
-                </>
-              )}
-           </Card>
-
-</div>
+{activeSection === "reports" && (
+<ReportDetails
+selectedReport={selectedReport}
+reportResult={reportResult}
+/>
+)}
 
 </main>
+
+
 
 </div>
 
