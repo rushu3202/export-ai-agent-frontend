@@ -15,7 +15,7 @@ import BuyerDiscovery from "../components/BuyerDiscovery";
 import MarketOpportunity from "../components/MarketOpportunity";
 import PublicReport from "./PublicReport";
 import PricingTools from "../components/dashboard/PricingTools";
-import MarketIntelligence from "../components/dashboard/MarketIntelligence.jsx"
+import MarketIntelligence from "../components/dashboard/MarketIntelligence.jsx";
 import AITools from "../components/dashboard/AITools";
 import ExportReadiness from "../components/dashboard/ExportReadiness.jsx";
 import ReportDetails from "../components/dashboard/ReportDetails.jsx";
@@ -779,30 +779,44 @@ y += 8;
 
 <div className="steps">
 
-<div className="step" onClick={() => setActiveSection("readiness")}>
+<div
+  className={`step ${activeSection === "readiness" ? "step--active" : ""}`}
+  onClick={() => setActiveSection("readiness")}
+>
   <div className="step__icon">📦</div>
   <div className="step__label">Export Readiness</div>
 </div>
 
-<div className="step" onClick={() => setActiveSection("market")}>
-  <div className="step__icon">🌍</div>
-  <div className="step__label">Market Intelligence</div>
-</div>
-
-<div className="step" onClick={() => setActiveSection("pricing")}>
+<div
+  className={`step ${activeSection === "pricing" ? "step--active" : ""}`}
+  onClick={() => setActiveSection("pricing")}
+>
   <div className="step__icon">💰</div>
   <div className="step__label">Pricing Tools</div>
 </div>
 
-<div className="step" onClick={() => setActiveSection("ai")}>
+<div
+  className={`step ${activeSection === "market" ? "step--active" : ""}`}
+  onClick={() => setActiveSection("market")}
+>
+  <div className="step__icon">🌍</div>
+  <div className="step__label">Market Intelligence</div>
+</div>
+
+<div
+  className={`step ${activeSection === "ai" ? "step--active" : ""}`}
+  onClick={() => setActiveSection("ai")}
+>
   <div className="step__icon">🤖</div>
   <div className="step__label">AI Tools</div>
 </div>
 
-<div className="step" onClick={() => setActiveSection("reports")}>
+<div></div>
+  className={`step ${activeSection === "reports" ? "step--active" : ""}`}
+  onClick={() => setActiveSection("reports")}
+
   <div className="step__icon">📊</div>
   <div className="step__label">Saved Reports</div>
-</div>
 </div>
 
           <div style={{ marginTop: 16 }}>
@@ -884,47 +898,56 @@ y += 8;
 {activeSection === "readiness" && (
 <>
 <ExportReadiness
-product={product}
-country={country}
-experience={experience}
-setProduct={setProduct}
-setCountry={setCountry}
-setExperience={setExperience}
-checkExport={checkExport}
-result={result}
-liveResult={liveResult}
-lockedHs={lockedHs}
-selectedHs={selectedHs}
-setSelectedHs={setSelectedHs}
-setLockedHs={setLockedHs}
+  product={product}
+  country={country}
+  experience={experience}
+  setProduct={setProduct}
+  setCountry={setCountry}
+  setExperience={setExperience}
+  checkExport={checkExport}
+  result={result}
+  error={error}
+  loading={loading}
 />
 </>
 )}
 
 {activeSection === "pricing" && (
-<PricingTools
-lockedHs={lockedHs}
-country={country}
-Card={Card}
-/>
+<>
+<h1 className="sectionTitle">Pricing Tools</h1>
+<PricingTools lockedHs={lockedHs} country={country} Card={Card} />
+</>
 )}
 
 {activeSection === "market" && (
-<MarketIntelligence Card={Card}/>
+<>
+<h1 className="sectionTitle">Market Intelligence</h1>
+<MarketIntelligence Card={Card} />
+</>
 )}
 
 {activeSection === "ai" && (
+<>
+<h1 className="sectionTitle">AI Tools</h1>
+
 <AITools
-Card={Card}
-complianceScore={complianceScore}
+  Card={Card}
+  complianceScore={complianceScore}
 />
+
+</>
 )}
 
 {activeSection === "reports" && (
+<>
+<h1 className="sectionTitle">Saved Reports</h1>
+
 <ReportDetails
-selectedReport={selectedReport}
-reportResult={reportResult}
+  selectedReport={selectedReport}
+  reportResult={reportResult}
 />
+
+</>
 )}
 
 </main>
