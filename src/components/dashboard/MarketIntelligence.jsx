@@ -3,6 +3,8 @@ import BuyerFinder from "../BuyerFinder"
 import MarketAnalyzer from "../MarketAnalyzer"
 import MarketOpportunity from "../MarketOpportunity"
 import MarketOpportunityScanner from "../MarketOpportunityScanner"
+import BuyerDiscoveryEngine from "./BuyerDiscoveryEngine"
+
 
 export default function MarketIntelligence({ Card }) {
 
@@ -18,6 +20,14 @@ export default function MarketIntelligence({ Card }) {
       >
         <MarketOpportunityScanner />
       </Card>
+
+      <Card
+title="Buyer Discovery Engine"
+subtitle="Find importers and distributors in your target market"
+>
+<BuyerDiscoveryEngine/>
+</Card>
+
 
 
       {/* Market Opportunity */}

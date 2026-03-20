@@ -2,106 +2,126 @@ import { useState } from "react"
 
 export default function MarketOpportunityScanner() {
 
-const [product,setProduct] = useState("")
-const [country,setCountry] = useState("")
-const [result,setResult] = useState(null)
-const [loading,setLoading] = useState(false)
+  const [product,setProduct] = useState("")
+  const [data, setData] = useState([]);
+  const [results,setResults] = useState(null)
+  const [loading,setLoading] = useState(false)
+  
+  
+  const calculateScore = (market) => {
+  let score = 50;
 
-async function scanMarket(){
+  if (market.demand === "High") score += 30;
+  if (market.competition === "Low") score += 20;
+  if (market.competition === "High") score -= 10;
 
-setLoading(true)
+  return Math.min(score, 100);
+};
+{data.length > 0 && (
+  <div style={{ marginTop: "20px" }}>
+    <h3>Top Export Markets</h3>
 
-try{
+    {data.map((m, i) => {
+      const score = calculateScore(m);
 
-const res = await fetch("https://aihomeworkhelper-backend.onrender.com/api/export-check",{
-method:"POST",
-headers:{
-"Content-Type":"application/json"
-},
-body:JSON.stringify({
-product,
-country,
-experience:"beginner"
-})
-})
+      return (
+        <div key={i} className="card" style={{ marginBottom: "10px" }}>
+          <h3>{m.country}</h3>
 
-const data = await res.json()
+          <p>Demand: {m.demand}</p>
+          <p>Competition: {m.competition}</p>
 
-setResult(data)
-
-}catch(err){
-
-console.log(err)
-
-}
-
-setLoading(false)
-
-}
-
-return (
-
-<div className="card">
-
-<div className="card__title">
-AI Export Opportunity Scanner
-</div>
-
-<div className="card__subtitle">
-Find demand and export potential instantly
-</div>
-
-<div style={{marginTop:20}}>
-
-<input
-className="input"
-placeholder="Product (e.g. Turmeric Powder)"
-value={product}
-onChange={(e)=>setProduct(e.target.value)}
-/>
-
-<input
-className="input"
-placeholder="Target Country (e.g. UK)"
-value={country}
-onChange={(e)=>setCountry(e.target.value)}
-style={{marginTop:10}}
-/>
-
-<button
-className="btn"
-onClick={scanMarket}
-style={{marginTop:10}}
->
-
-{loading ? "Scanning Market..." : "Scan Opportunity"}
-
-</button>
-
-</div>
-
-{result && (
-
-<div style={{marginTop:20}}>
-
-<div>
-<b>Risk Level:</b> {result.risk_level}
-</div>
-
-<div>
-<b>Recommended Incoterm:</b> {result.recommended_incoterm}
-</div>
-
-<div>
-<b>Export Stage:</b> {result.journey_stage}
-</div>
-
-</div>
-
+          <h2 style={{ color: score > 80 ? "green" : score > 60 ? "orange" : "red" }}>
+            Score: {score}/100
+          </h2>
+        </div>
+      );
+    })}
+  </div>
 )}
 
-</div>
+  const analyzeMarket = async () => {
+  try {
+    setLoading(true);
 
-)
+    const res = await fetch(`${API_URL}/api/market-opportunity`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ product })
+    });
+
+    if (!res.ok) {
+      throw new Error("API request failed");
+    }
+
+    const result = await res.json();
+
+    setData(result.markets || []); // ✅ THIS LINE IS KEY
+
+  } catch (err) {
+    console.error(err);
+  } finally {
+    setLoading(false);
+  }
+};
+  return (
+
+    <div>
+
+      <input
+        className="input"
+        placeholder="Enter product (example: banana powder)"
+        value={product}
+        onChange={(e)=>setProduct(e.target.value)}
+      />
+
+      <button
+        className="btn"
+        onClick={analyzeMarket}
+      >
+        Analyze Market
+      </button>
+
+      {loading && (
+        <div className="muted" style={{marginTop:10}}>
+          Analyzing markets...
+        </div>
+      )}
+
+      {results && (
+
+        <div style={{marginTop:20}}>
+
+          {results.map((m,i)=>(
+
+            <div key={i} className="hsRow">
+
+              <div className="hsText">
+
+                <b>{m.country}</b>
+
+                <div className="muted">
+                  Opportunity Score: {m.score}
+                </div>
+
+                <div className="muted">
+                  Demand: {m.demand}
+                </div>
+
+              </div>
+
+            </div>
+
+          ))}
+
+        </div>
+
+      )}
+
+    </div>
+
+  )
 
 }

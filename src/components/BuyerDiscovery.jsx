@@ -32,7 +32,7 @@ export default function BuyerDiscovery() {
 
   };
 
-  function searchBuyers() {
+  fetch(`${import.meta.env.VITE_API_URL}/api/find-buyers`)
 
     const key = product.toLowerCase();
 
